@@ -1,18 +1,25 @@
 "use client"
 
 export default function loginPage() {
-    function handleClick(){
-        alert("clicked sign in button");
+    async function handleClick(){
+        const res = await fetch("/api/auth/pin/start",{
+            method: "POST",
+        })
+
+        const data = await res.json();
+        alert(JSON.stringify(data));
 
     }
     return (
         <>
-            <button
-                onClick={handleClick}
-                className="bg-amber-50 border"
-            >
-                sign in with plex
-            </button>
+            <div className="flex flex-col items-center justify-center h-screen text-center">
+                <button
+                    onClick={handleClick}
+                    className="p-1 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition"
+                >
+                    Sign in with Plex
+                </button>
+            </div>
         </>
     )
 }
