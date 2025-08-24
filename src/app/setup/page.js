@@ -15,16 +15,9 @@ export default function SetupPage() {
             if(!res.ok) return alert("Could not get PIN");
             const data = await res.json();
             setPin(data);
-            //        poll to check
-            const pollResponse = await fetch(`/api/auth/pin/poll?pinId=${data.id}`);
-            if (!pollResponse.ok) return alert("Poll failed");
-            const pollResponseData = await pollResponse.json();
 
-            if (pollResponseData.ok) {
-                router.push("/dashboard");
-            } else {
-                alert(`Your PIN is ${data.code}. Go to plex.tv/link to enter it, then come back and try again.`);
-            }
+            alert(`Your PIN is ${data.code}. Go to plex.tv/link to enter it, then come back and try again.`);
+
         } catch (err) {
             console.error(err);
             alert("something went wrong");
@@ -33,13 +26,38 @@ export default function SetupPage() {
 
     return (
         <>
-            <div className="flex flex-col items-center justify-center h-screen text-center">
+            <div className="flex flex-col items-center justify-center h-screen text-center gap-3">
                 <button
                     onClick={handleClick}
-                    className="p-1 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition"
+                    className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition"
                 >
                     Sign in with Plex
                 </button>
+
+                {pin && (
+                    <>
+                        <div className="text-sm text-gray-700">
+                            Go to <b>plex.tv/link</b> and enter code:
+                            <div className="text-2xl font-bold tracking-widest mt-1">{pin.code}</div>
+                        </div>
+                        <button
+                            onClick = { async () => {
+                                const r = await fetch(`/api/auth/pin/poll?pinId=${pin.id}`);
+                                if (!r.ok) return alert("Check Failed");
+                                const d = await r.json();
+                                if (d.ok) {
+                                    router.push("/dashboard");
+                                } else {
+                                    alert("Not linked yet. Please enter the code and complete linking.");
+                                }
+
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                        >
+                            Check Status
+                        </button>
+                    </>
+                )}
             </div>
         </>
     )
