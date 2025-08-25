@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import ServersPanel from "./ServersPanel";
 
 export default async function DashboardPage() {
     const cookieStore = await cookies();
@@ -19,6 +20,7 @@ export default async function DashboardPage() {
                     Not connected (no plex_user_token)
                 </div>
             )}
+            <ServersPanel></ServersPanel>
         </main>
     );
 }
