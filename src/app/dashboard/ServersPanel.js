@@ -44,9 +44,13 @@ export default function ServersPanel() {
                         </div>
                         <button
                             className="px-3 py-1 rounded bg-black text-white"
-                            onClick={() => {
-
-                                alert(`Select ${s.name}`);
+                            onClick={async () => {
+                                const res = await fetch("/api/servers/select", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ machineId:s.machineId, accessToken:s.accessToken, uri:s.connections[0]}),
+                                });
+                                alert(`response ${res.status}: ${res.statusText}`);
                             }}
                         >
                             Select
