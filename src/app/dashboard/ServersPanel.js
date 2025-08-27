@@ -45,12 +45,17 @@ export default function ServersPanel() {
                         <button
                             className="px-3 py-1 rounded bg-black text-white"
                             onClick={async () => {
-                                const res = await fetch("/api/servers/select", {
+                                await fetch("/api/servers/select", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ machineId:s.machineId, accessToken:s.accessToken, uri:s.connections[0]}),
+                                    body: JSON.stringify({ machineId:s.machineId, accessToken:s.accessToken, uri:s.connections[0].uri}),
                                 });
-                                alert(`response ${res.status}: ${res.statusText}`);
+                                const res = await fetch("/api/servers/selected", {
+                                    method: "GET",
+                                });
+                                const data = await res.json();
+
+                                alert(`Selected ${data?.machineId} which is ${data?.uri}`);
                             }}
                         >
                             Select
