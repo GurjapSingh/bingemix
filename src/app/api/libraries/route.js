@@ -27,7 +27,7 @@ export async function GET(){
             .filter((dir) => dir.type === "show")
             .map((dir) => ({ key: String(dir.key), title: dir.title }));
 
-        return Response.json(tvLibraries, { headers: { "Cache-Control": "no-store" } });
+        return Response.json({tvLibraries}, { headers: { "Cache-Control": "no-store" } });
     } catch (error) {
         return Response.json({ error: "Error while fetching libraries"});
     }
