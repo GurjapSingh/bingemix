@@ -15,7 +15,6 @@ export default function LibrariesPanel() {
                 if (!res.ok) throw new Error('Failed to load libraries');
 
                 const data = await res.json();
-                // assuming you return { libraries: [...] } from the API
                 setLibraries(data?.tvLibraries || []);
             } catch (e) {
                 setError(e.message || 'Libraries Error');
