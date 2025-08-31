@@ -7,6 +7,27 @@ export default function PreviewPanel({ selected }) {
     const [error, setError] = useState('');
     const [preview, setPreview] = useState([]);
 
+    function buildRoundRobinPlaylist(showsAndEpisodes) {
+        const pointers = new Map(showsAndEpisodes.map((s) => [s.ratingKey, 0]));
+        const mixedEpisodes = [];
+
+        let keepGoing = true;
+
+        while (keepGoing) {
+            keepGoing = false;
+            for (const show of showsAndEpisodes) {
+                const showPointer = pointers.get(show.ratingKey);
+                if (showPointer < show.episodes.length) {
+                    const ep = show.episodes[showPointer];
+                    mixedEpisodes.push({ ...ep, showTitle: show.title });
+                    pointers.set(show.ratingKey, showPointer + 1);
+                    keepGoing = true;
+                }
+            }
+        }
+        setPreview(mixedEpisodes);
+    }
+
     async function handlePreview() {
         setLoading(true);
         setError('');
@@ -30,15 +51,7 @@ export default function PreviewPanel({ selected }) {
                 })
             );
 
-            const allEpisodes = results.flatMap((s) =>
-                (s.episodes || []).map((ep) => ({
-                    ...ep,
-                    showTitle: s.title,
-                    showKey: s.ratingKey,
-                }))
-            );
-
-            setPreview(allEpisodes);
+            buildRoundRobinPlaylist(results);
         } catch (error) {
             setError(error.message || 'Error fetching episodes');
         } finally {
@@ -81,7 +94,7 @@ export default function PreviewPanel({ selected }) {
                     <ol className="list-decimal pl-6 space-y-1 max-h-[480px] overflow-auto border rounded p-3">
                         {preview.map((e) => (
                             <li
-                                key={`${e.showKey}-${e.ratingKey}`}
+                                key={`${e.showTitle}-${e.ratingKey}`}
                                 className="text-sm"
                             >
                                 <span className="font-medium">
@@ -93,6 +106,26 @@ export default function PreviewPanel({ selected }) {
                     </ol>
                 </>
             )}
+            <button
+                onClick={async () => {
+                    const episodeKeys = preview.map((e) => e.ratingKey);
+                    const res = await fetch('/api/playlist/build', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            title: 'Show Mixer',
+                            episodeKeys,
+                        }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok)
+                        return alert(data.error || 'Failed to build playlist');
+                    alert(`Created playlist with ${data.added} items`);
+                }}
+                className="rounded bg-blue-600 px-4 py-2 text-white"
+            >
+                Create Playlist
+            </button>
         </section>
     );
 }
