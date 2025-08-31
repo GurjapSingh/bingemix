@@ -1,22 +1,24 @@
-"use client";
-import { useState, useEffect } from "react";
+'use client';
+import { useState, useEffect } from 'react';
 
 export default function LibrariesPanel() {
     const [libraries, setLibraries] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+    const [error, setError] = useState('');
 
     useEffect(() => {
         async function fetchLibraries() {
             try {
-                const res = await fetch("/api/libraries", { cache: "no-store" });
-                if (!res.ok) throw new Error("Failed to load libraries");
+                const res = await fetch('/api/libraries', {
+                    cache: 'no-store',
+                });
+                if (!res.ok) throw new Error('Failed to load libraries');
 
                 const data = await res.json();
                 // assuming you return { libraries: [...] } from the API
                 setLibraries(data?.tvLibraries || []);
             } catch (e) {
-                setError(e.message || "Libraries Error");
+                setError(e.message || 'Libraries Error');
             } finally {
                 setLoading(false);
             }
@@ -36,7 +38,9 @@ export default function LibrariesPanel() {
             )}
 
             {!loading && !error && libraries.length === 0 && (
-                <div className="text-gray-500 text-sm">No TV libraries found.</div>
+                <div className="text-gray-500 text-sm">
+                    No TV libraries found.
+                </div>
             )}
 
             <ul className="space-y-3">
@@ -47,14 +51,21 @@ export default function LibrariesPanel() {
                     >
                         <div>
                             <div className="font-medium">{l.title}</div>
-                            <div className="text-xs text-gray-500">Key: {l.key}</div>
+                            <div className="text-xs text-gray-500">
+                                Key: {l.key}
+                            </div>
                         </div>
                         <button
                             onClick={async () => {
-                                await fetch("/api/libraries/select", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ key: l.key, title: l.title }),
+                                await fetch('/api/libraries/select', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        key: l.key,
+                                        title: l.title,
+                                    }),
                                 });
                                 alert(`Selected ${l.title}`);
                             }}

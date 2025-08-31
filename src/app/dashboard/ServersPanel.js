@@ -1,30 +1,30 @@
-"use client";
-import { useState, useEffect } from "react";
+'use client';
+import { useState, useEffect } from 'react';
 
 export default function ServersPanel() {
     const [servers, setServers] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+    const [error, setError] = useState('');
 
     useEffect(() => {
         async function fetchServers() {
             setLoading(true);
-            setError("");
+            setError('');
             try {
-                const res = await fetch("/api/servers", { cache: "no-cache" });
+                const res = await fetch('/api/servers', { cache: 'no-cache' });
                 if (!res.ok) {
-                    throw new Error("Failed to load servers.");
+                    throw new Error('Failed to load servers.');
                 }
                 const data = await res.json();
                 setServers(data);
             } catch (e) {
-                setError(e.message || "Server Error");
+                setError(e.message || 'Server Error');
             } finally {
                 setLoading(false);
             }
         }
         fetchServers();
-    },[]);
+    }, []);
     return (
         <section className="mt-4 space-y-3">
             <h2 className="font-semibold">Your Plex Servers</h2>
@@ -35,7 +35,10 @@ export default function ServersPanel() {
             )}
             <ul className="space-y-2">
                 {servers.map((s) => (
-                    <li key={s.machineId} className="flex items-center justify-between rounded border p-3">
+                    <li
+                        key={s.machineId}
+                        className="flex items-center justify-between rounded border p-3"
+                    >
                         <div>
                             <div className="font-medium">{s.name}</div>
                             <div className="text-xs text-gray-500">
@@ -45,17 +48,28 @@ export default function ServersPanel() {
                         <button
                             className="px-3 py-1 rounded bg-black text-white"
                             onClick={async () => {
-                                await fetch("/api/servers/select", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ machineId:s.machineId, accessToken:s.accessToken, uri:s.connections[0].uri}),
+                                await fetch('/api/servers/select', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        machineId: s.machineId,
+                                        accessToken: s.accessToken,
+                                        uri: s.connections[0].uri,
+                                    }),
                                 });
-                                const res = await fetch("/api/servers/selected", {
-                                    method: "GET",
-                                });
+                                const res = await fetch(
+                                    '/api/servers/selected',
+                                    {
+                                        method: 'GET',
+                                    }
+                                );
                                 const data = await res.json();
 
-                                alert(`Selected ${data?.machineId} which is ${data?.uri}`);
+                                alert(
+                                    `Selected ${data?.machineId} which is ${data?.uri}`
+                                );
                             }}
                         >
                             Select
