@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import ServersPanel from './ServersPanel';
 import LibrariesPanel from './LibrariesPanel';
-import SearchPanel from './SearchPanel';
+import ClientArea from './ClientArea.js';
 
 export default async function DashboardPage() {
     const cookieStore = await cookies();
@@ -26,7 +26,7 @@ export default async function DashboardPage() {
             )}
             <ServersPanel></ServersPanel>
             <LibrariesPanel></LibrariesPanel>
-            <SearchPanel></SearchPanel>
+            <ClientArea></ClientArea>
         </main>
     );
 }

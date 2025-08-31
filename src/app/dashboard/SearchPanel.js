@@ -2,12 +2,11 @@
 
 import { useState } from 'react';
 
-export default function SearchPanel() {
+export default function SearchPanel({ selected, onChangeSelected }) {
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [results, setResults] = useState([]);
-    const [selected, setSelected] = useState([]);
 
     async function doSearch() {
         if (!query.trim()) return;
@@ -34,11 +33,11 @@ export default function SearchPanel() {
 
     function addShow(item) {
         if (selected.some((s) => s.ratingKey === item.ratingKey)) return;
-        setSelected((old) => [...old, item]);
+        onChangeSelected([...selected, item]);
     }
 
     function removeShow(key) {
-        setSelected((old) => old.filter((s) => s.ratingKey !== key));
+        onChangeSelected(selected.filter((s) => s.ratingKey !== key));
     }
 
     return (
