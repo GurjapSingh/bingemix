@@ -32,13 +32,12 @@ export async function GET() {
                 { status: 502 }
             );
         }
-        const data = await res.json(); // full list of Plex resources
+        const data = await res.json();
 
         const servers = (data || []).filter((item) =>
             item.provides?.includes('server')
         );
 
-        // Slim down to only the fields you need
         const simplified = servers.map((s) => ({
             name: s.name,
             machineId: s.clientIdentifier,

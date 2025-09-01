@@ -1,5 +1,11 @@
 import { cookies } from 'next/headers';
-
+const PLEX_HEADERS = {
+    'X-Plex-Product': 'ShowMixer',
+    'X-Plex-Version': '1.0',
+    'X-Plex-Platform': 'Web',
+    'X-Plex-Client-Identifier': process.env.PLEX_CLIENT_ID,
+    Accept: 'application/json',
+};
 export async function GET(req) {
     const searchParams = req.nextUrl.searchParams;
     const pinId = searchParams.get('pinId');
@@ -9,13 +15,7 @@ export async function GET(req) {
 
     const res = await fetch(`https://plex.tv/api/v2/pins/${pinId}`, {
         method: 'GET',
-        headers: {
-            'X-Plex-Product': 'ShowMixer',
-            'X-Plex-Version': '1.0',
-            'X-Plex-Platform': 'Web',
-            'X-Plex-Client-Identifier': process.env.PLEX_CLIENT_ID,
-            Accept: 'application/json',
-        },
+        headers: PLEX_HEADERS,
     });
 
     if (!res.ok) {

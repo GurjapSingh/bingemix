@@ -14,10 +14,6 @@ export default function SetupPage() {
             if (!res.ok) return alert('Could not get PIN');
             const data = await res.json();
             setPin(data);
-
-            alert(
-                `Your PIN is ${data.code}. Go to plex.tv/link to enter it, then come back and try again.`
-            );
         } catch (err) {
             console.error(err);
             alert('something went wrong');
