@@ -67,7 +67,6 @@ export default function LibrariesPanel({ onSelect }) {
                                     }),
                                 });
                                 onSelect(l.title);
-                                alert(`Selected ${l.title}`);
                             }}
                             className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700 transition"
                         >

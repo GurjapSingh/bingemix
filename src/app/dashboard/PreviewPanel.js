@@ -6,6 +6,7 @@ export default function PreviewPanel({ selected }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [preview, setPreview] = useState([]);
+    const [playlistName, setPlaylistName] = useState('');
 
     function buildRoundRobinPlaylist(showsAndEpisodes) {
         const pointers = new Map(showsAndEpisodes.map((s) => [s.ratingKey, 0]));
@@ -106,26 +107,41 @@ export default function PreviewPanel({ selected }) {
                     </ol>
                 </>
             )}
-            <button
-                onClick={async () => {
-                    const episodeKeys = preview.map((e) => e.ratingKey);
-                    const res = await fetch('/api/playlist/build', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            title: 'Show Mixer',
-                            episodeKeys,
-                        }),
-                    });
-                    const data = await res.json();
-                    if (!res.ok)
-                        return alert(data.error || 'Failed to build playlist');
-                    alert(`Created playlist with ${data.added} items`);
-                }}
-                className="rounded bg-blue-600 px-4 py-2 text-white"
-            >
-                Create Playlist
-            </button>
+            <div className="flex items-center gap-2 justify-center">
+                <input
+                    value={playlistName}
+                    type="text"
+                    onChange={(e) => setPlaylistName(e.target.value)}
+                    placeholder="Enter playlist name"
+                    className="rounded border px-3 py-2"
+                />
+                <button
+                    disabled={playlistName.trim().length === 0}
+                    onClick={async () => {
+                        const episodeKeys = preview.map((e) => e.ratingKey);
+                        const res = await fetch('/api/playlist/build', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                title: playlistName,
+                                episodeKeys,
+                            }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            return alert(
+                                data.error || 'Failed to build playlist'
+                            );
+                        }
+                        alert(`Created playlist with ${data.added} items`);
+                        setPlaylistName('');
+                        setPreview([]);
+                    }}
+                    className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
+                >
+                    Create Playlist
+                </button>
+            </div>
         </section>
     );
 }

@@ -34,6 +34,8 @@ export default function SearchPanel({ selected, onChangeSelected }) {
     function addShow(item) {
         if (selected.some((s) => s.ratingKey === item.ratingKey)) return;
         onChangeSelected([...selected, item]);
+        setQuery('');
+        setResults([]);
     }
 
     function removeShow(key) {

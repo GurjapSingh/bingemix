@@ -5,44 +5,85 @@ import SearchPanel from './SearchPanel';
 import PreviewPanel from './PreviewPanel';
 import ServersPanel from './ServersPanel';
 import LibrariesPanel from './LibrariesPanel';
+import { useRouter } from 'next/navigation';
 
-export default function ClientArea({ hasServer, hasLibrary }) {
+export default function ClientArea() {
+    const router = useRouter();
     const [selected, setSelected] = useState([]);
     const [serverTitle, setServerTitle] = useState(null);
-    const [libraryTitle, setLibrariesTitle] = useState(null);
+    const [libraryTitle, setLibraryTitle] = useState(null);
+
+    async function doLibraryChange() {
+        await fetch('/api/libraries/clear', {
+            method: 'POST',
+            cache: 'no-store',
+        });
+        setLibraryTitle(null);
+        setSelected([]);
+        router.refresh();
+    }
+
+    async function doServerChange() {
+        await fetch('/api/libraries/clear', {
+            method: 'POST',
+            cache: 'no-store',
+        });
+        await fetch('/api/servers/clear', {
+            method: 'POST',
+            cache: 'no-store',
+        });
+        setSelected([]);
+        setLibraryTitle(null);
+        setServerTitle(null);
+        router.refresh();
+    }
 
     return (
         <section className="space-y-6">
             {/* 1. Check server cookie*/}
-            <div
-                className={`rounded border p-4 ${hasServer ? 'opacity-50' : ''}`}
-            >
+            <div className="rounded border p-4">
                 <h2 className="font-semibold">Step 1: Choose a Plex server</h2>
                 {serverTitle ? (
-                    <p className="text-sm text-gray-600">
-                        Selected server: {serverTitle}
-                    </p>
+                    <>
+                        <p className="text-sm text-gray-600">
+                            Selected server: {serverTitle}
+                        </p>
+                        <button
+                            onClick={doServerChange}
+                            className="rounded bg-gray-200 px-3 py-1"
+                        >
+                            Change Server
+                        </button>
+                    </>
                 ) : (
                     <ServersPanel onSelect={setServerTitle} />
                 )}
             </div>
 
             {/* 2. check for selected library*/}
-            <div
-                className={`rounded border p-4 ${hasLibrary ? 'opacity-50' : ''}`}
-            >
-                <h2 className="font-semibold">Step 2: Choose a Library</h2>
-                {libraryTitle ? (
-                    <p className="text-sm text-gray-600">
-                        Selected library: {libraryTitle}
-                    </p>
-                ) : (
-                    <LibrariesPanel onSelect={setLibrariesTitle} />
-                )}
-            </div>
+            {serverTitle && (
+                <div className="rounded border p-4">
+                    <h2 className="font-semibold">Step 2: Choose a Library</h2>
+                    {libraryTitle ? (
+                        <>
+                            <p className="text-sm text-gray-600">
+                                Selected library: {libraryTitle}
+                            </p>
+                            <button
+                                onClick={doLibraryChange}
+                                className="rounded bg-gray-200 px-3 py-1"
+                            >
+                                Change Library
+                            </button>
+                        </>
+                    ) : (
+                        <LibrariesPanel onSelect={setLibraryTitle} />
+                    )}
+                </div>
+            )}
 
             {/* 3. Search and preview */}
-            {hasServer && hasLibrary && (
+            {serverTitle && libraryTitle && (
                 <div className="rounded border p-4">
                     <h2 className="font-semibold">
                         Step 3: Search and select shows
