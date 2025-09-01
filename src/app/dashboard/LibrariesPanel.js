@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-export default function LibrariesPanel() {
+export default function LibrariesPanel({ onSelect }) {
     const [libraries, setLibraries] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -66,6 +66,7 @@ export default function LibrariesPanel() {
                                         title: l.title,
                                     }),
                                 });
+                                onSelect(l.title);
                                 alert(`Selected ${l.title}`);
                             }}
                             className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700 transition"

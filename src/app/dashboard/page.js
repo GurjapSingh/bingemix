@@ -6,30 +6,29 @@ import LogoutPanel from './LogoutPanel';
 
 export default async function DashboardPage() {
     const cookieStore = await cookies();
-    const token = cookieStore.get('plex_user_token')?.value;
+    const userToken = cookieStore.get('plex_user_token')?.value ?? null;
+    const serverCookie = cookieStore.get('plex_server')?.value ?? null;
+    const libraryCookie = cookieStore.get('plex_library')?.value ?? null;
 
     return (
         <main className="p-6">
             <div className="text-sm text-gray-700 mb-2">
                 Welcome to the dashboard
             </div>
-            <LogoutPanel></LogoutPanel>
 
-            {token ? (
-                <>
-                    <div className="inline-flex items-center gap-2 rounded bg-green-100 px-3 py-1 text-green-700">
-                        Connected to Plex
-                    </div>
-                </>
-            ) : (
-                <div className="inline-flex items-center gap-2 rounded bg-red-100 px-3 py-1 text-red-700">
-                    <span className="h-2 w-2 rounded-full bg-red-600" />
-                    Not connected (no plex_user_token)
+            {!userToken && (
+                <div className="rounded bg-yellow-100 p-3 text-yellow-800">
+                    Not connected to Plex.{' '}
+                    <a href="/setup" className="underline">
+                        Sign in
+                    </a>
                 </div>
             )}
-            <ServersPanel></ServersPanel>
-            <LibrariesPanel></LibrariesPanel>
-            <ClientArea></ClientArea>
+
+            <ClientArea
+                hasServer={serverCookie !== null}
+                hasLibrary={libraryCookie !== null}
+            ></ClientArea>
         </main>
     );
 }

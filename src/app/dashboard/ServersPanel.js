@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-export default function ServersPanel() {
+export default function ServersPanel({ onSelect }) {
     const [servers, setServers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -66,10 +66,7 @@ export default function ServersPanel() {
                                     }
                                 );
                                 const data = await res.json();
-
-                                alert(
-                                    `Selected ${data?.machineId} which is ${data?.uri}`
-                                );
+                                onSelect(s.name);
                             }}
                         >
                             Select
