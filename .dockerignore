@@ -8,3 +8,7 @@ docker-compose*.yml
 npm-debug.log
 pnpm-lock.yaml
 yarn.lock
+.vscode
+.idea
+.DS_Store
+Thumbs.db
