@@ -1,0 +1,20 @@
+
+services:
+  plex-show-mixer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gurjaps/plex-show-mixer:latest
+    container_name: plex-show-mixer
+    ports:
+      - "${PORT:-6767}:${PORT:-6767}"
+    environment:
+      NODE_ENV: "production"
+      PORT: "${PORT:-6767}"
+      PLEX_CLIENT_ID: "${PLEX_CLIENT_ID:-}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${PORT:-6767}/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
