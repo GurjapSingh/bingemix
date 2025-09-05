@@ -30,7 +30,7 @@ COPY --from=builder /app/node_modules ./node_modules
 ENV NODE_ENV=production
 
 # Expose the port
-EXPOSE 3000
+EXPOSE 6767
 
 # Start Next.js
-CMD ["npm", "start"]
+CMD ["sh", "-c", "npm start"]
