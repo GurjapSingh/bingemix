@@ -1,11 +1,6 @@
 import { cookies } from 'next/headers';
-const PLEX_HEADERS = {
-    'X-Plex-Product': 'ShowMixer',
-    'X-Plex-Version': '1.0',
-    'X-Plex-Platform': 'Web',
-    'X-Plex-Client-Identifier': process.env.PLEX_CLIENT_ID,
-    Accept: 'application/json',
-};
+import { getClientId } from '@/lib/clientId';
+
 export async function GET(req) {
     const searchParams = req.nextUrl.searchParams;
     const pinId = searchParams.get('pinId');
@@ -13,9 +8,16 @@ export async function GET(req) {
         return new Response('Missing pinId', { status: 400 });
     }
 
+    const clientId = await getClientId();
     const res = await fetch(`https://plex.tv/api/v2/pins/${pinId}`, {
         method: 'GET',
-        headers: PLEX_HEADERS,
+        headers: {
+            'X-Plex-Product': 'ShowMixer',
+            'X-Plex-Version': '1.0',
+            'X-Plex-Platform': 'Web',
+            'X-Plex-Client-Identifier': clientId,
+            Accept: 'application/json',
+        },
     });
 
     if (!res.ok) {
@@ -33,7 +35,7 @@ export async function GET(req) {
         cookieStore.set('plex_user_token', data.authToken, {
             httpOnly: true,
             sameSite: 'lax',
-            secure: process.env.NODE_ENV === 'production',
+            secure: req.nextUrl.protocol === 'https:',
             path: '/',
             maxAge: 60 * 60 * 24 * 30,
         });

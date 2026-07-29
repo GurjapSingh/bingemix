@@ -33,7 +33,16 @@ export default function SetupPage() {
                 {pin && (
                     <>
                         <div className="text-sm text-gray-700">
-                            Go to <b>plex.tv/link</b> and enter code:
+                            Go to{' '}
+                            <a
+                                href="https://plex.tv/link"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline font-bold"
+                            >
+                                plex.tv/link
+                            </a>{' '}
+                            and enter code:
                             <div className="text-2xl font-bold tracking-widest mt-1">
                                 {pin.code}
                             </div>

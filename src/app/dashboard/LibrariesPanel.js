@@ -12,9 +12,15 @@ export default function LibrariesPanel({ onSelect }) {
                 const res = await fetch('/api/libraries', {
                     cache: 'no-store',
                 });
-                if (!res.ok) throw new Error('Failed to load libraries');
-
                 const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(
+                        data?.details ||
+                            data?.error ||
+                            'Failed to load libraries'
+                    );
+                }
+
                 setLibraries(data?.tvLibraries || []);
             } catch (e) {
                 setError(e.message || 'Libraries Error');

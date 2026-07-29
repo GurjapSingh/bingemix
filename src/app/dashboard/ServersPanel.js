@@ -5,6 +5,7 @@ export default function ServersPanel({ onSelect }) {
     const [servers, setServers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [connectingId, setConnectingId] = useState(null);
 
     useEffect(() => {
         async function fetchServers() {
@@ -37,39 +38,77 @@ export default function ServersPanel({ onSelect }) {
                 {servers.map((s) => (
                     <li
                         key={s.machineId}
-                        className="flex items-center justify-between rounded border p-3"
+                        className="flex items-start justify-between rounded border p-3"
                     >
                         <div>
                             <div className="font-medium">{s.name}</div>
-                            <div className="text-xs text-gray-500">
-                                Connections: {s.connections?.length ?? 0}
-                            </div>
+                            {s.connections?.length ? (
+                                <ul className="mt-1 space-y-0.5">
+                                    {s.connections.map((c) => (
+                                        <li
+                                            key={c.uri}
+                                            className="text-xs text-gray-500"
+                                        >
+                                            <span
+                                                className={`mr-1 rounded px-1 ${
+                                                    c.local
+                                                        ? 'bg-gray-200'
+                                                        : 'bg-blue-100 text-blue-700'
+                                                }`}
+                                            >
+                                                {c.local ? 'local' : 'remote'}
+                                            </span>
+                                            {c.uri}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="text-xs text-gray-500">
+                                    No connections
+                                </div>
+                            )}
                         </div>
                         <button
-                            className="px-3 py-1 rounded bg-black text-white"
+                            disabled={connectingId === s.machineId}
+                            className="px-3 py-1 rounded bg-black text-white disabled:opacity-50"
                             onClick={async () => {
-                                await fetch('/api/servers/select', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                    },
-                                    body: JSON.stringify({
-                                        machineId: s.machineId,
-                                        accessToken: s.accessToken,
-                                        uri: s.connections[0].uri,
-                                    }),
-                                });
-                                const res = await fetch(
-                                    '/api/servers/selected',
-                                    {
-                                        method: 'GET',
+                                setConnectingId(s.machineId);
+                                setError('');
+                                try {
+                                    const res = await fetch(
+                                        '/api/servers/select',
+                                        {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type':
+                                                    'application/json',
+                                            },
+                                            body: JSON.stringify({
+                                                machineId: s.machineId,
+                                                accessToken: s.accessToken,
+                                                connections: s.connections,
+                                            }),
+                                        }
+                                    );
+                                    const data = await res.json();
+                                    if (!res.ok) {
+                                        throw new Error(
+                                            data?.details ||
+                                                data?.error ||
+                                                'Could not reach this server.'
+                                        );
                                     }
-                                );
-                                const data = await res.json();
-                                onSelect(s.name);
+                                    onSelect(s.name);
+                                } catch (e) {
+                                    setError(e.message || 'Server Error');
+                                } finally {
+                                    setConnectingId(null);
+                                }
                             }}
                         >
-                            Select
+                            {connectingId === s.machineId
+                                ? 'Connecting…'
+                                : 'Select'}
                         </button>
                     </li>
                 ))}

@@ -1,4 +1,6 @@
 import { cookies } from 'next/headers';
+import { getItemsMetadata } from '@/lib/plexClient';
+import { setBaseline } from '@/lib/db';
 
 export async function POST(req) {
     try {
@@ -70,6 +72,17 @@ export async function POST(req) {
                 );
             }
             added += Math.min(chunkSize, episodeKeys.length - i);
+        }
+
+        const metadata = await getItemsMetadata(
+            { uri, accessToken, machineId },
+            episodeKeys
+        );
+        const viewCountByKey = new Map(
+            metadata.map((m) => [String(m.ratingKey), m.viewCount ?? 0])
+        );
+        for (const key of episodeKeys) {
+            setBaseline(playlistKey, key, viewCountByKey.get(String(key)) ?? 0);
         }
 
         return Response.json(

@@ -38,6 +38,13 @@ export async function GET() {
             { headers: { 'Cache-Control': 'no-store' } }
         );
     } catch (error) {
-        return Response.json({ error: 'Error while fetching libraries' });
+        console.error('libraries route error', error);
+        return Response.json(
+            {
+                error: 'Error while fetching libraries',
+                details: String(error?.message || error),
+            },
+            { status: 500 }
+        );
     }
 }

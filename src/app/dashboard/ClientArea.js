@@ -5,6 +5,7 @@ import SearchPanel from './SearchPanel';
 import PreviewPanel from './PreviewPanel';
 import ServersPanel from './ServersPanel';
 import LibrariesPanel from './LibrariesPanel';
+import PlaylistsPanel from './PlaylistsPanel';
 import { useRouter } from 'next/navigation';
 
 export default function ClientArea() {
@@ -93,6 +94,16 @@ export default function ClientArea() {
                         onChangeSelected={setSelected}
                     />
                     <PreviewPanel selected={selected} />
+                </div>
+            )}
+
+            {/* 4. Manage auto-update playlists */}
+            {serverTitle && (
+                <div className="rounded border p-4">
+                    <h2 className="font-semibold">
+                        Manage Auto-Update Playlists
+                    </h2>
+                    <PlaylistsPanel />
                 </div>
             )}
         </section>

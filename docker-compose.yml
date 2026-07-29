@@ -11,7 +11,8 @@ services:
     environment:
       NODE_ENV: "production"
       PORT: "${PORT:-6767}"
-      PLEX_CLIENT_ID: "${PLEX_CLIENT_ID:-}"
+    volumes:
+      - ./data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${PORT:-6767}/ || exit 1"]

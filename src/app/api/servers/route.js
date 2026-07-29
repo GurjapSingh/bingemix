@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { getClientId } from '@/lib/clientId';
 
 export async function GET() {
     try {
@@ -12,6 +13,7 @@ export async function GET() {
             );
         }
 
+        const clientId = await getClientId();
         const res = await fetch(
             `https://plex.tv/api/v2/resources?X-Plex-Token=${token}`,
             {
@@ -20,7 +22,7 @@ export async function GET() {
                     'X-Plex-Product': 'ShowMixer',
                     'X-Plex-Version': '1.0',
                     'X-Plex-Platform': 'Web',
-                    'X-Plex-Client-Identifier': process.env.PLEX_CLIENT_ID,
+                    'X-Plex-Client-Identifier': clientId,
                 },
             }
         );
@@ -47,7 +49,7 @@ export async function GET() {
 
         return Response.json(simplified);
     } catch (error) {
-        console.error('servers route error', err);
+        console.error('servers route error', error);
         return Response.json({ error: 'Unexpected error' }, { status: 500 });
     }
 }

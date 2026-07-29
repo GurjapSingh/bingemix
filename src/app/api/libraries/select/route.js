@@ -9,7 +9,7 @@ export async function POST(req) {
         cookieStore.set('plex_library', JSON.stringify({ key, title }), {
             httpOnly: true,
             sameSite: 'no-cache',
-            secure: process.env.NODE_ENV === 'production',
+            secure: req.nextUrl.protocol === 'https:',
             path: '/',
             maxAge: 60 * 60 * 24 * 30,
         });
