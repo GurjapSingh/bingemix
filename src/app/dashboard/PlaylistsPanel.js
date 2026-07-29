@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 
-export default function PlaylistsPanel() {
+export default function PlaylistsPanel({ refreshKey }) {
     const [playlists, setPlaylists] = useState([]);
     const [authInvalid, setAuthInvalid] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -32,7 +32,7 @@ export default function PlaylistsPanel() {
 
     useEffect(() => {
         fetchPlaylists();
-    }, [fetchPlaylists]);
+    }, [fetchPlaylists, refreshKey]);
 
     async function toggleAutoUpdate(p) {
         await fetch('/api/playlists/auto-update', {

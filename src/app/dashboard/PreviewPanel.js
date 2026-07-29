@@ -38,8 +38,9 @@ export default function PreviewPanel({
     selected,
     playlistOrder,
     episodesByShow,
-    selectedSeasons,
+    selectedEpisodes,
     episodesError,
+    onPlaylistCreated,
 }) {
     const [preview, setPreview] = useState([]);
     const [playlistName, setPlaylistName] = useState('');
@@ -48,9 +49,9 @@ export default function PreviewPanel({
         const showsAndEpisodes = selected
             .map((show) => {
                 const episodes = episodesByShow?.[show.ratingKey] ?? [];
-                const seasons = selectedSeasons?.[show.ratingKey];
-                const filtered = seasons
-                    ? episodes.filter((ep) => seasons.has(ep.season))
+                const selectedEps = selectedEpisodes?.[show.ratingKey];
+                const filtered = selectedEps
+                    ? episodes.filter((ep) => selectedEps.has(ep.ratingKey))
                     : episodes;
                 return { ...show, episodes: filtered };
             })
@@ -61,7 +62,11 @@ export default function PreviewPanel({
                 ? buildRandomPlaylist(showsAndEpisodes)
                 : buildRoundRobinPlaylist(showsAndEpisodes)
         );
-    }, [selected, playlistOrder, episodesByShow, selectedSeasons]);
+    }, [selected, playlistOrder, episodesByShow, selectedEpisodes]);
+
+    function removeFromPreview(index) {
+        setPreview((items) => items.filter((_, i) => i !== index));
+    }
 
     return (
         <section className="mt-8 space-y-3">
@@ -92,12 +97,13 @@ export default function PreviewPanel({
                                     <th className="px-3 py-2">Show</th>
                                     <th className="px-3 py-2">Episode</th>
                                     <th className="px-3 py-2">Title</th>
+                                    <th className="px-3 py-2" />
                                 </tr>
                             </thead>
                             <tbody>
                                 {preview.map((e, i) => (
                                     <tr
-                                        key={`${e.showTitle}-${e.ratingKey}`}
+                                        key={`${e.showTitle}-${e.ratingKey}-${i}`}
                                         className="border-t"
                                     >
                                         <td className="px-3 py-2 text-gray-500">
@@ -111,6 +117,14 @@ export default function PreviewPanel({
                                         </td>
                                         <td className="px-3 py-2">
                                             {e.title}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                            <button
+                                                onClick={() => removeFromPreview(i)}
+                                                className="rounded bg-red-100 px-2 py-1 text-xs text-red-700"
+                                            >
+                                                Remove
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -147,6 +161,7 @@ export default function PreviewPanel({
                         }
                         alert(`Created playlist with ${data.added} items`);
                         setPlaylistName('');
+                        onPlaylistCreated?.();
                     }}
                     className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
                 >

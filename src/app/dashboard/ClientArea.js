@@ -15,8 +15,9 @@ export default function ClientArea() {
     const [serverTitle, setServerTitle] = useState(null);
     const [libraryTitle, setLibraryTitle] = useState(null);
     const [episodesByShow, setEpisodesByShow] = useState({});
-    const [selectedSeasons, setSelectedSeasons] = useState({});
+    const [selectedEpisodes, setSelectedEpisodes] = useState({});
     const [episodesError, setEpisodesError] = useState('');
+    const [playlistRefreshKey, setPlaylistRefreshKey] = useState(0);
     const fetchedShowsRef = useRef(new Set());
 
     useEffect(() => {
@@ -50,11 +51,11 @@ export default function ClientArea() {
                     ...prev,
                     ...Object.fromEntries(results),
                 }));
-                setSelectedSeasons((prev) => {
+                setSelectedEpisodes((prev) => {
                     const next = { ...prev };
                     for (const [ratingKey, episodes] of results) {
                         next[ratingKey] = new Set(
-                            episodes.map((ep) => ep.season)
+                            episodes.map((ep) => ep.ratingKey)
                         );
                     }
                     return next;
@@ -71,15 +72,29 @@ export default function ClientArea() {
         };
     }, [selected]);
 
-    function toggleSeason(ratingKey, season) {
-        setSelectedSeasons((prev) => {
-            const current = new Set(prev[ratingKey] ?? []);
-            if (current.has(season)) {
-                current.delete(season);
+    function toggleEpisode(showRatingKey, episodeRatingKey) {
+        setSelectedEpisodes((prev) => {
+            const current = new Set(prev[showRatingKey] ?? []);
+            if (current.has(episodeRatingKey)) {
+                current.delete(episodeRatingKey);
             } else {
-                current.add(season);
+                current.add(episodeRatingKey);
             }
-            return { ...prev, [ratingKey]: current };
+            return { ...prev, [showRatingKey]: current };
+        });
+    }
+
+    function toggleAllInSeason(showRatingKey, seasonEpisodes, checked) {
+        setSelectedEpisodes((prev) => {
+            const current = new Set(prev[showRatingKey] ?? []);
+            for (const ep of seasonEpisodes) {
+                if (checked) {
+                    current.add(ep.ratingKey);
+                } else {
+                    current.delete(ep.ratingKey);
+                }
+            }
+            return { ...prev, [showRatingKey]: current };
         });
     }
 
@@ -164,15 +179,17 @@ export default function ClientArea() {
                         playlistOrder={playlistOrder}
                         onChangePlaylistOrder={setPlaylistOrder}
                         episodesByShow={episodesByShow}
-                        selectedSeasons={selectedSeasons}
-                        onToggleSeason={toggleSeason}
+                        selectedEpisodes={selectedEpisodes}
+                        onToggleEpisode={toggleEpisode}
+                        onToggleAllInSeason={toggleAllInSeason}
                     />
                     <PreviewPanel
                         selected={selected}
                         playlistOrder={playlistOrder}
                         episodesByShow={episodesByShow}
-                        selectedSeasons={selectedSeasons}
+                        selectedEpisodes={selectedEpisodes}
                         episodesError={episodesError}
+                        onPlaylistCreated={() => setPlaylistRefreshKey((k) => k + 1)}
                     />
                 </div>
             )}
@@ -183,7 +200,7 @@ export default function ClientArea() {
                     <h2 className="font-semibold">
                         Manage Auto-Update Playlists
                     </h2>
-                    <PlaylistsPanel />
+                    <PlaylistsPanel refreshKey={playlistRefreshKey} />
                 </div>
             )}
         </section>

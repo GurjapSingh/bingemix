@@ -2,14 +2,91 @@
 
 import { useState } from 'react';
 
+function ShowEpisodeSelector({ show, episodes, selectedEpisodes, onToggleEpisode, onToggleAllInSeason }) {
+    const seasons = [...new Set(episodes.map((ep) => ep.season))].sort((a, b) => a - b);
+    const [activeTab, setActiveTab] = useState(seasons[0] ?? null);
+
+    if (seasons.length === 0) return null;
+
+    const selectedEps = selectedEpisodes?.[show.ratingKey] ?? new Set();
+    const seasonEpisodes = episodes.filter((ep) => ep.season === activeTab);
+    const allSelected = seasonEpisodes.length > 0 && seasonEpisodes.every((ep) => selectedEps.has(ep.ratingKey));
+    const someSelected = seasonEpisodes.some((ep) => selectedEps.has(ep.ratingKey));
+
+    return (
+        <div className="mt-2 border-t pt-2">
+            <div className="flex gap-0 border-b">
+                {seasons.map((s) => (
+                    <button
+                        key={s}
+                        onClick={() => setActiveTab(s)}
+                        className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                            activeTab === s
+                                ? 'border-b-2 border-blue-600 text-blue-600'
+                                : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                    >
+                        Season {s}
+                    </button>
+                ))}
+            </div>
+            <div className="max-h-[260px] overflow-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="sticky top-0 bg-gray-50">
+                        <tr>
+                            <th className="px-3 py-2">
+                                <input
+                                    type="checkbox"
+                                    checked={allSelected}
+                                    ref={(el) => {
+                                        if (el) el.indeterminate = !allSelected && someSelected;
+                                    }}
+                                    onChange={(e) =>
+                                        onToggleAllInSeason(show.ratingKey, seasonEpisodes, e.target.checked)
+                                    }
+                                />
+                            </th>
+                            <th className="px-3 py-2 text-gray-600">Ep</th>
+                            <th className="px-3 py-2 text-gray-600">Title</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {seasonEpisodes.map((ep) => (
+                            <tr
+                                key={ep.ratingKey}
+                                className="border-t hover:bg-gray-50 cursor-pointer"
+                                onClick={() => onToggleEpisode(show.ratingKey, ep.ratingKey)}
+                            >
+                                <td className="px-3 py-1.5">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedEps.has(ep.ratingKey)}
+                                        onChange={() => onToggleEpisode(show.ratingKey, ep.ratingKey)}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                </td>
+                                <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">
+                                    E{ep.episode}
+                                </td>
+                                <td className="px-3 py-1.5">{ep.title}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
 export default function SearchPanel({
     selected,
     onChangeSelected,
     playlistOrder,
     onChangePlaylistOrder,
     episodesByShow,
-    selectedSeasons,
-    onToggleSeason,
+    selectedEpisodes,
+    onToggleEpisode,
+    onToggleAllInSeason,
 }) {
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
@@ -123,11 +200,6 @@ export default function SearchPanel({
                     <ul className="mt-2 space-y-2">
                         {selected.map((s) => {
                             const episodes = episodesByShow?.[s.ratingKey] ?? [];
-                            const seasons = [
-                                ...new Set(episodes.map((ep) => ep.season)),
-                            ].sort((a, b) => a - b);
-                            const checkedSeasons = selectedSeasons?.[s.ratingKey];
-
                             return (
                                 <li
                                     key={s.ratingKey}
@@ -152,31 +224,18 @@ export default function SearchPanel({
                                             Remove
                                         </button>
                                     </div>
-                                    {seasons.length > 0 && (
-                                        <div className="mt-2 flex flex-wrap gap-3 border-t pt-2">
-                                            {seasons.map((season) => (
-                                                <label
-                                                    key={season}
-                                                    className="flex items-center gap-1 text-xs"
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={
-                                                            checkedSeasons?.has(
-                                                                season
-                                                            ) ?? true
-                                                        }
-                                                        onChange={() =>
-                                                            onToggleSeason(
-                                                                s.ratingKey,
-                                                                season
-                                                            )
-                                                        }
-                                                    />
-                                                    Season {season}
-                                                </label>
-                                            ))}
+                                    {episodes.length === 0 ? (
+                                        <div className="mt-2 border-t pt-2 text-xs text-gray-400">
+                                            Loading episodes…
                                         </div>
+                                    ) : (
+                                        <ShowEpisodeSelector
+                                            show={s}
+                                            episodes={episodes}
+                                            selectedEpisodes={selectedEpisodes}
+                                            onToggleEpisode={onToggleEpisode}
+                                            onToggleAllInSeason={onToggleAllInSeason}
+                                        />
                                     )}
                                 </li>
                             );
