@@ -41,8 +41,6 @@ export async function POST(req) {
                           id: uuidv4(),
                           sourcePlaylistKey: playlistKey,
                           title,
-                          watchedPlaylistKey: null,
-                          watchedPlaylistTitle: `${title}_watched`,
                           enabled: !!enabled,
                           status: 'active',
                           lastPolledAt: null,

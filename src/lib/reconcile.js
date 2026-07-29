@@ -1,10 +1,6 @@
 import { readState, updateState } from './stateStore.js';
 import {
-    getPlaylist,
     getPlaylistItems,
-    findPlaylistByTitle,
-    createPlaylist,
-    addItemsToPlaylist,
     removePlaylistItem,
     PlexApiError,
 } from './plexClient.js';
@@ -21,19 +17,6 @@ function formatEpisode(item) {
     return `${item.grandparentTitle || item.title} S${season}E${episode}`;
 }
 
-async function resolveWatchedPlaylistKey(entry, server) {
-    if (entry.watchedPlaylistKey) {
-        try {
-            await getPlaylist(server, entry.watchedPlaylistKey);
-            return entry.watchedPlaylistKey;
-        } catch (err) {
-            if (err.status !== 404) throw err;
-        }
-    }
-    const found = await findPlaylistByTitle(server, entry.watchedPlaylistTitle);
-    return found?.ratingKey || null;
-}
-
 export async function reconcilePlaylistEntry(entry, server) {
     console.log(`[auto-update] checking "${entry.title}"`);
 
@@ -46,9 +29,7 @@ export async function reconcilePlaylistEntry(entry, server) {
         const viewCount = item.viewCount ?? 0;
         const baseline = baselines.get(ratingKey);
         if (baseline === undefined) {
-            // No baseline recorded (playlist predates this feature, or the item
-            // was added outside the mixer flow) — seed it now so a future watch
-            // is detected, without removing anything on this pass.
+            // No baseline — seed it so a future watch is detected, skip this pass.
             setBaseline(entry.sourcePlaylistKey, ratingKey, viewCount);
             continue;
         }
@@ -62,49 +43,16 @@ export async function reconcilePlaylistEntry(entry, server) {
         return { status: 'active', lastPolledAt: new Date().toISOString(), lastError: null };
     }
 
-    let watchedPlaylistKey = await resolveWatchedPlaylistKey(entry, server);
-
-    let existingWatchedKeys = new Set();
-    if (watchedPlaylistKey) {
-        const watchedItems = await getPlaylistItems(server, watchedPlaylistKey);
-        existingWatchedKeys = new Set(watchedItems.map((i) => i.ratingKey));
-    }
-
-    const toAdd = watched.filter((i) => !existingWatchedKeys.has(i.ratingKey));
-
-    if (toAdd.length > 0) {
-        if (!watchedPlaylistKey) {
-            watchedPlaylistKey = await createPlaylist(
-                server,
-                entry.watchedPlaylistTitle,
-                toAdd[0].ratingKey
-            );
-            const rest = toAdd.slice(1).map((i) => i.ratingKey);
-            if (rest.length > 0) {
-                await addItemsToPlaylist(server, watchedPlaylistKey, rest);
-            }
-        } else {
-            await addItemsToPlaylist(
-                server,
-                watchedPlaylistKey,
-                toAdd.map((i) => i.ratingKey)
-            );
-        }
-    }
-
     for (const item of watched) {
         await removePlaylistItem(server, entry.sourcePlaylistKey, item.playlistItemID);
         deleteBaseline(entry.sourcePlaylistKey, item.ratingKey);
     }
 
     const episodeList = watched.map(formatEpisode).join(', ');
-    console.log(
-        `[auto-update] "${entry.title}": moved ${watched.length} watched episode(s) to "${entry.watchedPlaylistTitle}": ${episodeList}`
-    );
+    console.log(`[auto-update] "${entry.title}": removed ${watched.length} watched episode(s): ${episodeList}`);
 
     return {
         status: 'active',
-        watchedPlaylistKey,
         lastPolledAt: new Date().toISOString(),
         lastError: null,
     };

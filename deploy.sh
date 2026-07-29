@@ -18,9 +18,6 @@ DOCKER_COMPOSE_CMD="${DOCKER_COMPOSE_CMD:-docker compose}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REMOTE="${REMOTE_USER}@${REMOTE_HOST}"
 
-echo "==> Ensuring remote directory exists: ${REMOTE}:${REMOTE_DIR}"
-ssh "${REMOTE}" "mkdir -p '${REMOTE_DIR}'"
-
 echo "==> Syncing project files to ${REMOTE}:${REMOTE_DIR}"
 rsync -avz --delete \
   --exclude '.git' \
@@ -34,12 +31,18 @@ rsync -avz --delete \
   --exclude 'deploy.sh' \
   "${SCRIPT_DIR}/" "${REMOTE}:${REMOTE_DIR}/"
 
-# Excluded files aren't removed by --delete if they were copied up before
-# they were excluded; prune any stale copy of this script from prior runs.
-ssh "${REMOTE}" "rm -f '${REMOTE_DIR}/deploy.sh'"
-
-echo "==> Bringing the stack up on ${REMOTE}"
-ssh "${REMOTE}" "cd '${REMOTE_DIR}' && ${DOCKER_COMPOSE_CMD} up -d --build"
-
-echo "==> Done. Container status:"
-ssh "${REMOTE}" "cd '${REMOTE_DIR}' && ${DOCKER_COMPOSE_CMD} ps"
+echo "==> Deploying on ${REMOTE}"
+ssh "${REMOTE}" "
+  set -e
+  cd '${REMOTE_DIR}'
+  ${DOCKER_COMPOSE_CMD} down 2>/dev/null || true
+  elapsed=0
+  while [ \"\$(${DOCKER_COMPOSE_CMD} ps -q 2>/dev/null | wc -l)\" -gt 0 ] && [ \"\$elapsed\" -lt 10 ]; do
+    sleep 1
+    elapsed=\$((elapsed + 1))
+  done
+  echo '==> Bringing the stack up'
+  ${DOCKER_COMPOSE_CMD} up -d --build
+  echo '==> Done. Container status:'
+  ${DOCKER_COMPOSE_CMD} ps
+"

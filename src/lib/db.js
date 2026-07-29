@@ -16,6 +16,18 @@ db.exec(`
         created_at TEXT NOT NULL,
         PRIMARY KEY (playlist_key, rating_key)
     );
+
+    CREATE TABLE IF NOT EXISTS playlist_savepoints (
+        playlist_key TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        rating_key TEXT NOT NULL,
+        show_title TEXT,
+        season INTEGER,
+        episode INTEGER,
+        title TEXT,
+        saved_at TEXT NOT NULL,
+        PRIMARY KEY (playlist_key, position)
+    );
 `);
 
 const setBaselineStmt = db.prepare(`
@@ -58,4 +70,46 @@ export function deleteBaseline(playlistKey, ratingKey) {
 
 export function deleteBaselinesForPlaylist(playlistKey) {
     deleteBaselinesForPlaylistStmt.run(String(playlistKey));
+}
+
+const clearSavepointStmt = db.prepare(`
+    DELETE FROM playlist_savepoints WHERE playlist_key = ?
+`);
+
+const insertSavepointItemStmt = db.prepare(`
+    INSERT INTO playlist_savepoints (playlist_key, position, rating_key, show_title, season, episode, title, saved_at)
+    VALUES (@playlistKey, @position, @ratingKey, @showTitle, @season, @episode, @title, @savedAt)
+`);
+
+const getSavepointStmt = db.prepare(`
+    SELECT position, rating_key, show_title, season, episode, title, saved_at
+    FROM playlist_savepoints
+    WHERE playlist_key = ?
+    ORDER BY position ASC
+`);
+
+export const saveSavepoint = db.transaction((playlistKey, items) => {
+    clearSavepointStmt.run(String(playlistKey));
+    const savedAt = new Date().toISOString();
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        insertSavepointItemStmt.run({
+            playlistKey: String(playlistKey),
+            position: i,
+            ratingKey: String(item.ratingKey),
+            showTitle: item.showTitle ?? null,
+            season: item.season ?? null,
+            episode: item.episode ?? null,
+            title: item.title ?? null,
+            savedAt,
+        });
+    }
+});
+
+export function getSavepoint(playlistKey) {
+    return getSavepointStmt.all(String(playlistKey));
+}
+
+export function clearSavepoint(playlistKey) {
+    clearSavepointStmt.run(String(playlistKey));
 }

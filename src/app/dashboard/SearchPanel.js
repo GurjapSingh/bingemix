@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 function ShowEpisodeSelector({ show, episodes, selectedEpisodes, onToggleEpisode, onToggleAllInSeason }) {
     const seasons = [...new Set(episodes.map((ep) => ep.season))].sort((a, b) => a - b);
@@ -92,35 +92,72 @@ export default function SearchPanel({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [results, setResults] = useState([]);
+    const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const containerRef = useRef(null);
 
-    async function doSearch() {
-        if (!query.trim()) return;
-        setLoading(true);
-        setError('');
-        setResults([]);
+    useEffect(() => {
+        setHighlightedIndex(0);
+    }, [results]);
 
-        try {
-            const res = await fetch(
-                `/api/search?query=${encodeURIComponent(query)}`,
-                { cache: 'no-store' }
-            );
-            if (!res.ok) {
-                throw new Error('Search failed');
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setResults([]);
             }
-            const data = await res.json();
-            setResults(data?.results || []);
-        } catch (error) {
-            setError(error.message || 'Search error');
-        } finally {
-            setLoading(false);
         }
-    }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        const trimmed = query.trim();
+        if (!trimmed) {
+            setResults([]);
+            setError('');
+            return;
+        }
+        const timer = setTimeout(async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const res = await fetch(
+                    `/api/search?query=${encodeURIComponent(trimmed)}`,
+                    { cache: 'no-store' }
+                );
+                if (!res.ok) throw new Error('Search failed');
+                const data = await res.json();
+                setResults(data?.results || []);
+            } catch (err) {
+                setError(err.message || 'Search error');
+            } finally {
+                setLoading(false);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [query]);
 
     function addShow(item) {
         if (selected.some((s) => s.ratingKey === item.ratingKey)) return;
         onChangeSelected([...selected, item]);
         setQuery('');
         setResults([]);
+    }
+
+    function handleKeyDown(e) {
+        if (results.length === 0) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedIndex((i) => Math.min(i + 1, results.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedIndex((i) => Math.max(i - 1, 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            addShow(results[highlightedIndex]);
+        } else if (e.key === 'Escape') {
+            setResults([]);
+            setQuery('');
+        }
     }
 
     function removeShow(key) {
@@ -131,63 +168,56 @@ export default function SearchPanel({
         <section className="mt-8 space-y-4">
             <h2 className="text-lg font-semibold">Search Shows</h2>
 
-            <div className="flex gap-2">
+            <div className="relative" ref={containerRef}>
                 <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && doSearch()}
+                    onKeyDown={handleKeyDown}
                     type="text"
                     placeholder="Search by title (e.g., The Office)"
-                    className="flex-1 rounded border px-3 py-2"
+                    className="w-full rounded border px-3 py-2 pr-20"
                 />
-                <button
-                    onClick={doSearch}
-                    className="rounded bg-black px-4 py-2 text-white"
-                >
-                    {loading ? 'Searching...' : 'Search'}
-                </button>
-            </div>
-            {error && (
-                <div className="rounded bg-red-100 px-3 py-2 text-sm text-red-700">
-                    {error}
-                </div>
-            )}
-            <div className="space-y-2">
-                {results.length > 0 && (
-                    <div className="text-sm text-gray-600">
-                        Results ({results.length})
+                {loading && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                        Searching…
+                    </span>
+                )}
+                {error && (
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded border border-red-200 bg-white px-3 py-2 text-sm text-red-700 shadow">
+                        {error}
                     </div>
                 )}
-                <ul className="space-y-2">
-                    {results.map((r) => (
-                        <li
-                            key={r.ratingKey}
-                            className="flex items-center justify-between rounded border p-3 hover:bg-gray-50"
-                        >
-                            <div>
-                                <div className="font-medium">{r.title}</div>
-                                <div className="text-xs text-gray-500">
-                                    {r.year ?? '—'} · Key: {r.ratingKey}
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => addShow(r)}
-                                disabled={selected.some(
-                                    (s) => s.ratingKey === r.ratingKey
-                                )}
-                                className="rounded bg-blue-600 px-3 py-1 text-white"
-                            >
-                                {selected.some(
-                                    (s) => s.ratingKey === r.ratingKey
-                                )
-                                    ? 'Added'
-                                    : 'Add'}
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-                {!loading && !error && results.length === 0 && query && (
-                    <div className="text-sm text-gray-500">No matches.</div>
+                {!error && results.length > 0 && (
+                    <ul className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-auto rounded border bg-white shadow">
+                        {results.map((r, i) => {
+                            const alreadyAdded = selected.some((s) => s.ratingKey === r.ratingKey);
+                            return (
+                                <li
+                                    key={r.ratingKey}
+                                    onMouseDown={() => addShow(r)}
+                                    onMouseEnter={() => setHighlightedIndex(i)}
+                                    className={`flex cursor-pointer items-center justify-between px-3 py-2 ${
+                                        i === highlightedIndex ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <div>
+                                        <div className="font-medium">{r.title}</div>
+                                        <div className="text-xs text-gray-500">{r.year ?? '—'}</div>
+                                    </div>
+                                    {i === highlightedIndex && !alreadyAdded ? (
+                                        <span className="text-xs text-gray-400">↵ to add</span>
+                                    ) : alreadyAdded ? (
+                                        <span className="text-xs text-gray-400">Added</span>
+                                    ) : null}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+                {!loading && !error && results.length === 0 && query.trim() && (
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded border bg-white px-3 py-2 text-sm text-gray-500 shadow">
+                        No matches.
+                    </div>
                 )}
             </div>
             <div className="pt-4 space-y-4">

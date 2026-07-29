@@ -99,6 +99,12 @@ export async function removePlaylistItem(server, playlistKey, playlistItemID) {
     }
 }
 
+export async function deletePlaylist(server, playlistKey) {
+    const url = new URL(`/playlists/${playlistKey}`, server.uri);
+    url.searchParams.set('X-Plex-Token', server.accessToken);
+    await plexFetch(url, { method: 'DELETE' });
+}
+
 export async function movePlaylistItem(
     server,
     playlistKey,
