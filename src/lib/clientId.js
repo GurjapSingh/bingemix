@@ -10,6 +10,11 @@ let cached = null;
 export async function getClientId() {
     if (cached) return cached;
 
+    if (process.env.PLEX_CLIENT_ID) {
+        cached = process.env.PLEX_CLIENT_ID;
+        return cached;
+    }
+
     try {
         cached = (await fs.readFile(CLIENT_ID_FILE, 'utf-8')).trim();
         return cached;
