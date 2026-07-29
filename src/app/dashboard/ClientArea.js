@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import SearchPanel from './SearchPanel';
 import PreviewPanel from './PreviewPanel';
 import ServersPanel from './ServersPanel';
@@ -18,7 +18,9 @@ export default function ClientArea() {
     const [selectedEpisodes, setSelectedEpisodes] = useState({});
     const [episodesError, setEpisodesError] = useState('');
     const [playlistRefreshKey, setPlaylistRefreshKey] = useState(0);
+    const [editingPlaylist, setEditingPlaylist] = useState(null);
     const fetchedShowsRef = useRef(new Set());
+    const step3Ref = useRef(null);
 
     useEffect(() => {
         const missing = selected.filter(
@@ -54,9 +56,12 @@ export default function ClientArea() {
                 setSelectedEpisodes((prev) => {
                     const next = { ...prev };
                     for (const [ratingKey, episodes] of results) {
-                        next[ratingKey] = new Set(
-                            episodes.map((ep) => ep.ratingKey)
-                        );
+                        // Don't override a selection pre-seeded by edit mode
+                        if (!(ratingKey in next)) {
+                            next[ratingKey] = new Set(
+                                episodes.map((ep) => ep.ratingKey)
+                            );
+                        }
                     }
                     return next;
                 });
@@ -96,6 +101,37 @@ export default function ClientArea() {
             }
             return { ...prev, [showRatingKey]: current };
         });
+    }
+
+    const loadPlaylistForEdit = useCallback(async (playlistKey, title) => {
+        const res = await fetch(`/api/playlists/${playlistKey}/items`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const items = data.items || [];
+
+        const showsMap = new Map();
+        const initialSelection = {};
+        for (const item of items) {
+            if (!item.showRatingKey) continue;
+            if (!showsMap.has(item.showRatingKey)) {
+                showsMap.set(item.showRatingKey, { ratingKey: item.showRatingKey, title: item.showTitle, year: null });
+                initialSelection[item.showRatingKey] = new Set();
+            }
+            initialSelection[item.showRatingKey].add(item.ratingKey);
+        }
+
+        // Seed selections before setting selected so the fetch useEffect doesn't overwrite them
+        setSelectedEpisodes(initialSelection);
+        setSelected([...showsMap.values()]);
+        setEditingPlaylist({ playlistKey, title });
+        setTimeout(() => step3Ref.current?.scrollIntoView({ behavior: 'smooth' }), 0);
+    }, []);
+
+    function cancelEdit() {
+        setEditingPlaylist(null);
+        setSelected([]);
+        setSelectedEpisodes({});
+        fetchedShowsRef.current = new Set();
     }
 
     async function doLibraryChange() {
@@ -168,10 +204,12 @@ export default function ClientArea() {
             )}
 
             {/* 3. Search and preview */}
-            {serverTitle && libraryTitle && (
-                <div className="rounded border p-4">
+            {serverTitle && (libraryTitle || editingPlaylist) && (
+                <div className="rounded border p-4" ref={step3Ref}>
                     <h2 className="font-semibold">
-                        Step 3: Search and select shows
+                        {editingPlaylist
+                            ? `Editing: ${editingPlaylist.title}`
+                            : 'Step 3: Search and select shows'}
                     </h2>
                     <SearchPanel
                         selected={selected}
@@ -189,7 +227,13 @@ export default function ClientArea() {
                         episodesByShow={episodesByShow}
                         selectedEpisodes={selectedEpisodes}
                         episodesError={episodesError}
-                        onPlaylistCreated={() => setPlaylistRefreshKey((k) => k + 1)}
+                        onPlaylistCreated={() => {
+                            setPlaylistRefreshKey((k) => k + 1);
+                            cancelEdit();
+                        }}
+                        editingPlaylist={editingPlaylist}
+                        onCancelEdit={cancelEdit}
+                        onToggleEpisode={toggleEpisode}
                     />
                 </div>
             )}
@@ -200,7 +244,10 @@ export default function ClientArea() {
                     <h2 className="font-semibold">
                         Manage Auto-Update Playlists
                     </h2>
-                    <PlaylistsPanel refreshKey={playlistRefreshKey} />
+                    <PlaylistsPanel
+                        refreshKey={playlistRefreshKey}
+                        onEditPlaylist={loadPlaylistForEdit}
+                    />
                 </div>
             )}
         </section>

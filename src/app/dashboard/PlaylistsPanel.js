@@ -1,18 +1,12 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 
-export default function PlaylistsPanel({ refreshKey }) {
+export default function PlaylistsPanel({ refreshKey, onEditPlaylist }) {
     const [playlists, setPlaylists] = useState([]);
     const [authInvalid, setAuthInvalid] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [deletingKey, setDeletingKey] = useState(null);
-
-    const [editingKey, setEditingKey] = useState(null);
-    const [editItems, setEditItems] = useState([]);
-    const [editLoading, setEditLoading] = useState(false);
-    const [editError, setEditError] = useState('');
-    const [saving, setSaving] = useState(false);
 
     // keyed by playlistKey: { savedAt, count } | null
     const [savepoints, setSavepoints] = useState({});
@@ -79,29 +73,6 @@ export default function PlaylistsPanel({ refreshKey }) {
         }
     }
 
-    async function startEdit(p) {
-        setEditingKey(p.playlistKey);
-        setEditItems([]);
-        setEditError('');
-        setEditLoading(true);
-        try {
-            const res = await fetch(`/api/playlists/${p.playlistKey}/items`, { cache: 'no-store' });
-            if (!res.ok) throw new Error('Failed to load playlist items.');
-            const data = await res.json();
-            setEditItems(data.items || []);
-        } catch (e) {
-            setEditError(e.message || 'Server error');
-        } finally {
-            setEditLoading(false);
-        }
-    }
-
-    function cancelEdit() {
-        setEditingKey(null);
-        setEditItems([]);
-        setEditError('');
-    }
-
     async function saveSavepoint(playlistKey) {
         setSavepointLoadingKey(playlistKey);
         try {
@@ -123,48 +94,8 @@ export default function PlaylistsPanel({ refreshKey }) {
         try {
             const res = await fetch(`/api/playlists/${playlistKey}/savepoint/restore`, { method: 'POST' });
             if (!res.ok) throw new Error('Failed to restore save point.');
-            if (editingKey === playlistKey) {
-                const itemsRes = await fetch(`/api/playlists/${playlistKey}/items`, { cache: 'no-store' });
-                if (itemsRes.ok) {
-                    const data = await itemsRes.json();
-                    setEditItems(data.items || []);
-                }
-            }
         } finally {
             setRestoringKey(null);
-        }
-    }
-
-    function removeItem(index) {
-        setEditItems((items) => items.filter((_, i) => i !== index));
-    }
-
-    function moveItem(index, direction) {
-        setEditItems((items) => {
-            const target = index + direction;
-            if (target < 0 || target >= items.length) return items;
-            const next = [...items];
-            [next[index], next[target]] = [next[target], next[index]];
-            return next;
-        });
-    }
-
-    async function saveEdit() {
-        setSaving(true);
-        setEditError('');
-        try {
-            const res = await fetch(`/api/playlists/${editingKey}/items`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ order: editItems.map((i) => i.playlistItemID) }),
-            });
-            if (!res.ok) throw new Error('Failed to save changes.');
-            cancelEdit();
-            await fetchPlaylists();
-        } catch (e) {
-            setEditError(e.message || 'Server error');
-        } finally {
-            setSaving(false);
         }
     }
 
@@ -175,10 +106,7 @@ export default function PlaylistsPanel({ refreshKey }) {
                     <span>
                         Auto-update lost access to your Plex account. Reconnect to resume.
                     </span>
-                    <button
-                        onClick={reconnect}
-                        className="rounded bg-black px-3 py-1 text-white"
-                    >
+                    <button onClick={reconnect} className="rounded bg-black px-3 py-1 text-white">
                         Reconnect auto-update
                     </button>
                 </div>
@@ -190,17 +118,11 @@ export default function PlaylistsPanel({ refreshKey }) {
             )}
             <ul className="space-y-2">
                 {playlists.map((p) => {
-                    const isEditing = editingKey === p.playlistKey;
                     const sp = savepoints[p.playlistKey];
                     return (
                         <li key={p.playlistKey} className="rounded border p-3 space-y-1">
                             <div className="flex items-center justify-between">
-                                <button
-                                    onClick={() => isEditing ? cancelEdit() : startEdit(p)}
-                                    className="font-medium underline decoration-dotted underline-offset-2"
-                                >
-                                    {p.title}
-                                </button>
+                                <span className="font-medium">{p.title}</span>
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => toggleAutoUpdate(p)}
@@ -209,10 +131,10 @@ export default function PlaylistsPanel({ refreshKey }) {
                                         {p.autoUpdateEnabled ? 'Auto-update: On' : 'Auto-update: Off'}
                                     </button>
                                     <button
-                                        onClick={() => isEditing ? cancelEdit() : startEdit(p)}
+                                        onClick={() => onEditPlaylist(p.playlistKey, p.title)}
                                         className="rounded bg-gray-200 px-3 py-1 text-sm"
                                     >
-                                        {isEditing ? 'Close' : 'Edit'}
+                                        Edit
                                     </button>
                                     <button
                                         onClick={() => deletePlaylist(p)}
@@ -246,7 +168,7 @@ export default function PlaylistsPanel({ refreshKey }) {
                                     )}
                                 </div>
                                 {p.autoUpdateEnabled && (
-                                    <div className="text-xs text-gray-500 space-y-0.5 text-right">
+                                    <div className="text-xs text-gray-500 text-right">
                                         {p.lastPolledAt && (
                                             <div>Last checked: {new Date(p.lastPolledAt).toLocaleString()}</div>
                                         )}
@@ -256,85 +178,6 @@ export default function PlaylistsPanel({ refreshKey }) {
                                     </div>
                                 )}
                             </div>
-
-                            {isEditing && (
-                                <div className="mt-2 space-y-3 border-t pt-3">
-                                    {editLoading && <div>Loading items…</div>}
-                                    {editError && (
-                                        <div className="rounded bg-red-100 px-3 py-2 text-sm text-red-700">
-                                            {editError}
-                                        </div>
-                                    )}
-                                    {!editLoading && editItems.length === 0 && !editError && (
-                                        <div className="text-sm text-gray-500">This playlist is empty.</div>
-                                    )}
-                                    {!editLoading && editItems.length > 0 && (
-                                        <div className="max-h-[400px] overflow-auto rounded border">
-                                            <table className="w-full text-left text-sm">
-                                                <thead className="sticky top-0 bg-gray-100">
-                                                    <tr>
-                                                        <th className="px-3 py-2">#</th>
-                                                        <th className="px-3 py-2">Show</th>
-                                                        <th className="px-3 py-2">Episode</th>
-                                                        <th className="px-3 py-2">Title</th>
-                                                        <th className="px-3 py-2" />
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {editItems.map((item, i) => (
-                                                        <tr key={item.playlistItemID} className="border-t">
-                                                            <td className="px-3 py-2 text-gray-500">{i + 1}</td>
-                                                            <td className="px-3 py-2 font-medium">{item.showTitle}</td>
-                                                            <td className="px-3 py-2">S{item.season}E{item.episode}</td>
-                                                            <td className="px-3 py-2">{item.title}</td>
-                                                            <td className="px-3 py-2">
-                                                                <div className="flex items-center gap-1">
-                                                                    <button
-                                                                        disabled={i === 0}
-                                                                        onClick={() => moveItem(i, -1)}
-                                                                        className="rounded bg-gray-200 px-2 py-1 text-xs disabled:opacity-40"
-                                                                    >
-                                                                        ▲
-                                                                    </button>
-                                                                    <button
-                                                                        disabled={i === editItems.length - 1}
-                                                                        onClick={() => moveItem(i, 1)}
-                                                                        className="rounded bg-gray-200 px-2 py-1 text-xs disabled:opacity-40"
-                                                                    >
-                                                                        ▼
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => removeItem(i)}
-                                                                        className="rounded bg-red-100 px-2 py-1 text-xs text-red-700"
-                                                                    >
-                                                                        Remove
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                    <div className="flex items-center justify-end gap-2">
-                                        <button
-                                            onClick={cancelEdit}
-                                            disabled={saving}
-                                            className="rounded bg-gray-200 px-3 py-1 text-sm disabled:opacity-50"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={saveEdit}
-                                            disabled={saving || editLoading}
-                                            className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-                                        >
-                                            {saving ? 'Saving…' : 'Save changes'}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                         </li>
                     );
                 })}

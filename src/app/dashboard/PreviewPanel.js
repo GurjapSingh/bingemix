@@ -13,7 +13,7 @@ function buildRoundRobinPlaylist(showsAndEpisodes) {
             const showPointer = pointers.get(show.ratingKey);
             if (showPointer < show.episodes.length) {
                 const ep = show.episodes[showPointer];
-                mixedEpisodes.push({ ...ep, showTitle: show.title });
+                mixedEpisodes.push({ ...ep, showTitle: show.title, showRatingKey: show.ratingKey });
                 pointers.set(show.ratingKey, showPointer + 1);
                 keepGoing = true;
             }
@@ -24,7 +24,7 @@ function buildRoundRobinPlaylist(showsAndEpisodes) {
 
 function buildRandomPlaylist(showsAndEpisodes) {
     const allEpisodes = showsAndEpisodes.flatMap((show) =>
-        show.episodes.map((ep) => ({ ...ep, showTitle: show.title }))
+        show.episodes.map((ep) => ({ ...ep, showTitle: show.title, showRatingKey: show.ratingKey }))
     );
 
     for (let i = allEpisodes.length - 1; i > 0; i--) {
@@ -41,6 +41,9 @@ export default function PreviewPanel({
     selectedEpisodes,
     episodesError,
     onPlaylistCreated,
+    editingPlaylist,
+    onCancelEdit,
+    onToggleEpisode,
 }) {
     const [preview, setPreview] = useState([]);
     const [playlistName, setPlaylistName] = useState('');
@@ -64,8 +67,8 @@ export default function PreviewPanel({
         );
     }, [selected, playlistOrder, episodesByShow, selectedEpisodes]);
 
-    function removeFromPreview(index) {
-        setPreview((items) => items.filter((_, i) => i !== index));
+    function removeFromPreview(ep) {
+        onToggleEpisode(ep.showRatingKey, ep.ratingKey);
     }
 
     return (
@@ -120,7 +123,7 @@ export default function PreviewPanel({
                                         </td>
                                         <td className="px-3 py-2">
                                             <button
-                                                onClick={() => removeFromPreview(i)}
+                                                onClick={() => removeFromPreview(e)}
                                                 className="rounded bg-red-100 px-2 py-1 text-xs text-red-700"
                                             >
                                                 Remove
@@ -133,41 +136,67 @@ export default function PreviewPanel({
                     </div>
                 </>
             )}
-            <div className="flex items-center gap-2 justify-center">
-                <input
-                    value={playlistName}
-                    type="text"
-                    onChange={(e) => setPlaylistName(e.target.value)}
-                    placeholder="Enter playlist name"
-                    className="rounded border px-3 py-2"
-                />
-                <button
-                    disabled={playlistName.trim().length === 0}
-                    onClick={async () => {
-                        const episodeKeys = preview.map((e) => e.ratingKey);
-                        const res = await fetch('/api/playlist/build', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                title: playlistName,
-                                episodeKeys,
-                            }),
-                        });
-                        const data = await res.json();
-                        if (!res.ok) {
-                            return alert(
-                                data.error || 'Failed to build playlist'
-                            );
-                        }
-                        alert(`Created playlist with ${data.added} items`);
-                        setPlaylistName('');
-                        onPlaylistCreated?.();
-                    }}
-                    className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
-                >
-                    Create Playlist
-                </button>
-            </div>
+            {editingPlaylist ? (
+                <div className="flex items-center gap-2 justify-center">
+                    <button
+                        onClick={onCancelEdit}
+                        className="rounded bg-gray-200 px-4 py-2"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        disabled={preview.length === 0}
+                        onClick={async () => {
+                            const episodeKeys = preview.map((e) => e.ratingKey);
+                            const res = await fetch(`/api/playlists/${editingPlaylist.playlistKey}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ episodeKeys }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) {
+                                return alert(data.error || 'Failed to update playlist');
+                            }
+                            alert(`Updated playlist with ${data.count} items`);
+                            onPlaylistCreated?.();
+                        }}
+                        className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
+                    >
+                        Update Playlist
+                    </button>
+                </div>
+            ) : (
+                <div className="flex items-center gap-2 justify-center">
+                    <input
+                        value={playlistName}
+                        type="text"
+                        onChange={(e) => setPlaylistName(e.target.value)}
+                        placeholder="Enter playlist name"
+                        className="rounded border px-3 py-2"
+                    />
+                    <button
+                        disabled={playlistName.trim().length === 0}
+                        onClick={async () => {
+                            const episodeKeys = preview.map((e) => e.ratingKey);
+                            const res = await fetch('/api/playlist/build', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ title: playlistName, episodeKeys }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) {
+                                return alert(data.error || 'Failed to build playlist');
+                            }
+                            alert(`Created playlist with ${data.added} items`);
+                            setPlaylistName('');
+                            onPlaylistCreated?.();
+                        }}
+                        className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
+                    >
+                        Create Playlist
+                    </button>
+                </div>
+            )}
         </section>
     );
 }

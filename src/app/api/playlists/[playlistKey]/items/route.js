@@ -10,6 +10,7 @@ function mapItem(item) {
     return {
         playlistItemID: String(item.playlistItemID),
         ratingKey: String(item.ratingKey),
+        showRatingKey: item.grandparentRatingKey ? String(item.grandparentRatingKey) : null,
         showTitle: item.grandparentTitle || item.title,
         season: item.parentIndex,
         episode: item.index,
