@@ -2,7 +2,15 @@
 
 import { useState } from 'react';
 
-export default function SearchPanel({ selected, onChangeSelected }) {
+export default function SearchPanel({
+    selected,
+    onChangeSelected,
+    playlistOrder,
+    onChangePlaylistOrder,
+    episodesByShow,
+    selectedSeasons,
+    onToggleSeason,
+}) {
     const [query, setQuery] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -105,35 +113,106 @@ export default function SearchPanel({ selected, onChangeSelected }) {
                     <div className="text-sm text-gray-500">No matches.</div>
                 )}
             </div>
-            <div className="pt-4">
-                <h3 className="font-semibold">Selected Shows</h3>
+            <div className="pt-4 space-y-4">
+                <h3 className="font-semibold">Selected Shows Settings</h3>
                 {selected.length === 0 ? (
                     <div className="text-sm text-gray-500">
                         Nothing selected yet.
                     </div>
                 ) : (
                     <ul className="mt-2 space-y-2">
-                        {selected.map((s) => (
-                            <li
-                                key={s.ratingKey}
-                                className="flex items-center justify-between rounded border p-3"
-                            >
-                                <div>
-                                    <div className="font-medium">{s.title}</div>
-                                    <div className="text-xs text-gray-500">
-                                        {s.year ?? '—'} · Key: {s.ratingKey}
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => removeShow(s.ratingKey)}
-                                    className="rounded bg-gray-200 px-3 py-1 text-gray-800 hover:bg-gray-300"
+                        {selected.map((s) => {
+                            const episodes = episodesByShow?.[s.ratingKey] ?? [];
+                            const seasons = [
+                                ...new Set(episodes.map((ep) => ep.season)),
+                            ].sort((a, b) => a - b);
+                            const checkedSeasons = selectedSeasons?.[s.ratingKey];
+
+                            return (
+                                <li
+                                    key={s.ratingKey}
+                                    className="rounded border p-3"
                                 >
-                                    Remove
-                                </button>
-                            </li>
-                        ))}
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="font-medium">
+                                                {s.title}
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {s.year ?? '—'} · Key:{' '}
+                                                {s.ratingKey}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() =>
+                                                removeShow(s.ratingKey)
+                                            }
+                                            className="rounded bg-gray-200 px-3 py-1 text-gray-800 hover:bg-gray-300"
+                                        >
+                                            Remove
+                                        </button>
+                                    </div>
+                                    {seasons.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-3 border-t pt-2">
+                                            {seasons.map((season) => (
+                                                <label
+                                                    key={season}
+                                                    className="flex items-center gap-1 text-xs"
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={
+                                                            checkedSeasons?.has(
+                                                                season
+                                                            ) ?? true
+                                                        }
+                                                        onChange={() =>
+                                                            onToggleSeason(
+                                                                s.ratingKey,
+                                                                season
+                                                            )
+                                                        }
+                                                    />
+                                                    Season {season}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </li>
+                            );
+                        })}
                     </ul>
                 )}
+
+                <div className="space-y-2">
+                    <div className="text-sm font-medium">Playlist order</div>
+                    <div className="flex gap-4">
+                        <label className="flex items-center gap-2 text-sm">
+                            <input
+                                type="radio"
+                                name="playlistOrder"
+                                value="round-robin"
+                                checked={playlistOrder === 'round-robin'}
+                                onChange={() =>
+                                    onChangePlaylistOrder('round-robin')
+                                }
+                            />
+                            Round robin
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                            <input
+                                type="radio"
+                                name="playlistOrder"
+                                value="random"
+                                checked={playlistOrder === 'random'}
+                                onChange={() =>
+                                    onChangePlaylistOrder('random')
+                                }
+                            />
+                            Random
+                        </label>
+                    </div>
+                </div>
             </div>
         </section>
     );

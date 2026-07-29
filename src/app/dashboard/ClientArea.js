@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SearchPanel from './SearchPanel';
 import PreviewPanel from './PreviewPanel';
 import ServersPanel from './ServersPanel';
@@ -11,8 +11,77 @@ import { useRouter } from 'next/navigation';
 export default function ClientArea() {
     const router = useRouter();
     const [selected, setSelected] = useState([]);
+    const [playlistOrder, setPlaylistOrder] = useState('round-robin');
     const [serverTitle, setServerTitle] = useState(null);
     const [libraryTitle, setLibraryTitle] = useState(null);
+    const [episodesByShow, setEpisodesByShow] = useState({});
+    const [selectedSeasons, setSelectedSeasons] = useState({});
+    const [episodesError, setEpisodesError] = useState('');
+    const fetchedShowsRef = useRef(new Set());
+
+    useEffect(() => {
+        const missing = selected.filter(
+            (s) => !fetchedShowsRef.current.has(s.ratingKey)
+        );
+        if (missing.length === 0) return;
+        missing.forEach((s) => fetchedShowsRef.current.add(s.ratingKey));
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const results = await Promise.all(
+                    missing.map(async (show) => {
+                        const res = await fetch(
+                            `/api/shows/${show.ratingKey}/episodes`,
+                            { cache: 'no-store' }
+                        );
+                        if (!res.ok) {
+                            throw new Error(
+                                `Error fetching episodes for ${show.title}`
+                            );
+                        }
+                        const data = await res.json();
+                        return [show.ratingKey, data.episodes ?? []];
+                    })
+                );
+                if (cancelled) return;
+
+                setEpisodesByShow((prev) => ({
+                    ...prev,
+                    ...Object.fromEntries(results),
+                }));
+                setSelectedSeasons((prev) => {
+                    const next = { ...prev };
+                    for (const [ratingKey, episodes] of results) {
+                        next[ratingKey] = new Set(
+                            episodes.map((ep) => ep.season)
+                        );
+                    }
+                    return next;
+                });
+            } catch (err) {
+                if (!cancelled) {
+                    setEpisodesError(err.message || 'Error fetching episodes');
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selected]);
+
+    function toggleSeason(ratingKey, season) {
+        setSelectedSeasons((prev) => {
+            const current = new Set(prev[ratingKey] ?? []);
+            if (current.has(season)) {
+                current.delete(season);
+            } else {
+                current.add(season);
+            }
+            return { ...prev, [ratingKey]: current };
+        });
+    }
 
     async function doLibraryChange() {
         await fetch('/api/libraries/clear', {
@@ -92,8 +161,19 @@ export default function ClientArea() {
                     <SearchPanel
                         selected={selected}
                         onChangeSelected={setSelected}
+                        playlistOrder={playlistOrder}
+                        onChangePlaylistOrder={setPlaylistOrder}
+                        episodesByShow={episodesByShow}
+                        selectedSeasons={selectedSeasons}
+                        onToggleSeason={toggleSeason}
                     />
-                    <PreviewPanel selected={selected} />
+                    <PreviewPanel
+                        selected={selected}
+                        playlistOrder={playlistOrder}
+                        episodesByShow={episodesByShow}
+                        selectedSeasons={selectedSeasons}
+                        episodesError={episodesError}
+                    />
                 </div>
             )}
 

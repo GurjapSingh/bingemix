@@ -15,6 +15,12 @@ import {
     deleteBaselinesForPlaylist,
 } from './db.js';
 
+function formatEpisode(item) {
+    const season = item.parentIndex != null ? String(item.parentIndex).padStart(2, '0') : '??';
+    const episode = item.index != null ? String(item.index).padStart(2, '0') : '??';
+    return `${item.grandparentTitle || item.title} S${season}E${episode}`;
+}
+
 async function resolveWatchedPlaylistKey(entry, server) {
     if (entry.watchedPlaylistKey) {
         try {
@@ -91,8 +97,9 @@ export async function reconcilePlaylistEntry(entry, server) {
         deleteBaseline(entry.sourcePlaylistKey, item.ratingKey);
     }
 
+    const episodeList = watched.map(formatEpisode).join(', ');
     console.log(
-        `[auto-update] "${entry.title}": moved ${watched.length} watched episode(s) to "${entry.watchedPlaylistTitle}"`
+        `[auto-update] "${entry.title}": moved ${watched.length} watched episode(s) to "${entry.watchedPlaylistTitle}": ${episodeList}`
     );
 
     return {

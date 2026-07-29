@@ -98,3 +98,20 @@ export async function removePlaylistItem(server, playlistKey, playlistItemID) {
         throw err;
     }
 }
+
+export async function movePlaylistItem(
+    server,
+    playlistKey,
+    playlistItemID,
+    afterPlaylistItemID
+) {
+    const url = new URL(
+        `/playlists/${playlistKey}/items/${playlistItemID}/move`,
+        server.uri
+    );
+    if (afterPlaylistItemID) {
+        url.searchParams.set('after', afterPlaylistItemID);
+    }
+    url.searchParams.set('X-Plex-Token', server.accessToken);
+    await plexFetch(url, { method: 'PUT' });
+}

@@ -7,7 +7,7 @@ export default async function DashboardPage() {
     const userToken = cookieStore.get('plex_user_token')?.value ?? null;
 
     return (
-        <main className="p-6">
+        <main className="mx-auto max-w-4xl p-6">
             <Header />
 
             {!userToken && (
