@@ -11,6 +11,7 @@ services:
     environment:
       NODE_ENV: "production"
       PORT: "${PORT:-6767}"
+      TOKEN_ENCRYPTION_KEY: "${TOKEN_ENCRYPTION_KEY:-}"
     volumes:
       - ./data:/app/data
     restart: unless-stopped

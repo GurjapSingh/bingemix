@@ -1,20 +1,14 @@
-import { cookies } from 'next/headers';
+import { requireSession } from '@/lib/session';
 
 export async function GET(req) {
     try {
-        const cookieStore = await cookies();
-        const serverRaw = cookieStore.get('plex_server')?.value;
-        const libRaw = cookieStore.get('plex_library')?.value;
-
-        if (!serverRaw || !libRaw) {
-            return Response.json(
-                { error: 'Missing server or library' },
-                { status: 401 }
-            );
-        }
-
-        const server = JSON.parse(serverRaw);
-        const lib = JSON.parse(libRaw);
+        const { session, response } = await requireSession({
+            server: true,
+            library: true,
+        });
+        if (response) return response;
+        const server = session.server;
+        const lib = session.library;
 
         const q = req.nextUrl.searchParams.get('query') || '';
         if (!q.trim()) {

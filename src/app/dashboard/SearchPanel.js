@@ -1,10 +1,84 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import {
+    SortableContext,
+    horizontalListSortingStrategy,
+    arrayMove,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { formatAirDate, formatRuntime, formatRating } from './episodeFormat';
+import { useSortSensors, lockX } from './dnd';
+
+// A show tab that can be dragged left/right to change the show order.
+function SortableTab({ show, active, chosen, total, onSelect, locked }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+        useSortable({ id: show.ratingKey, disabled: locked });
+    return (
+        <button
+            ref={setNodeRef}
+            {...attributes}
+            {...listeners}
+            role="tab"
+            aria-selected={active}
+            onClick={onSelect}
+            className="folder-tab"
+            title={locked ? show.title : `${show.title} (drag to reorder)`}
+            style={{
+                transform: CSS.Translate.toString(transform),
+                transition,
+                zIndex: isDragging ? 2 : undefined,
+                opacity: isDragging ? 0.85 : undefined,
+                cursor: locked ? 'default' : isDragging ? 'grabbing' : 'grab',
+            }}
+        >
+            {show.title}
+            {total > 0 && (
+                <span className="chip">
+                    {chosen}/{total}
+                </span>
+            )}
+        </button>
+    );
+}
+
+// Fades the edges of a horizontally scrolling row when more is hidden off-screen.
+function useScrollFade(dep) {
+    const ref = useRef(null);
+    const [fade, setFade] = useState({ left: false, right: false });
+
+    const update = useCallback(() => {
+        const el = ref.current;
+        if (!el) return;
+        setFade({
+            left: el.scrollLeft > 2,
+            right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
+        });
+    }, []);
+
+    useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        update();
+        el.addEventListener('scroll', update, { passive: true });
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => {
+            el.removeEventListener('scroll', update);
+            ro.disconnect();
+        };
+    }, [update, dep]);
+
+    const mask = `linear-gradient(to right, ${fade.left ? 'transparent, #000 28px' : '#000, #000 0'}, ${fade.right ? '#000 calc(100% - 28px), transparent' : '#000 100%, #000'})`;
+    return { ref, fade, style: { WebkitMaskImage: mask, maskImage: mask } };
+}
 
 function ShowEpisodeSelector({ show, episodes, selectedEpisodes, onToggleEpisode, onToggleAllInSeason }) {
     const seasons = [...new Set(episodes.map((ep) => ep.season))].sort((a, b) => a - b);
     const [activeTab, setActiveTab] = useState(seasons[0] ?? null);
+    const seasonFade = useScrollFade(seasons.length);
 
     if (seasons.length === 0) return null;
 
@@ -14,25 +88,91 @@ function ShowEpisodeSelector({ show, episodes, selectedEpisodes, onToggleEpisode
     const someSelected = seasonEpisodes.some((ep) => selectedEps.has(ep.ratingKey));
 
     return (
-        <div className="mt-2 border-t pt-2">
-            <div className="flex gap-0 border-b">
-                {seasons.map((s) => (
-                    <button
-                        key={s}
-                        onClick={() => setActiveTab(s)}
-                        className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                            activeTab === s
-                                ? 'border-b-2 border-blue-600 text-blue-600'
-                                : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                    >
-                        Season {s}
-                    </button>
-                ))}
+        <div className="mt-3">
+            <div className="relative border-b border-[var(--border)]">
+            {seasonFade.fade.left && (
+                <button
+                    type="button"
+                    aria-label="Scroll seasons left"
+                    className="season-arrow left-0"
+                    onClick={() => seasonFade.ref.current?.scrollBy({ left: -260, behavior: 'smooth' })}
+                >
+                    ‹
+                </button>
+            )}
+            {seasonFade.fade.right && (
+                <button
+                    type="button"
+                    aria-label="Scroll seasons right"
+                    className="season-arrow right-0"
+                    onClick={() => seasonFade.ref.current?.scrollBy({ left: 260, behavior: 'smooth' })}
+                >
+                    ›
+                </button>
+            )}
+            <div
+                ref={seasonFade.ref}
+                style={seasonFade.style}
+                className="no-scrollbar flex overflow-x-auto"
+            >
+                {seasons.map((s) => {
+                    const eps = episodes.filter((ep) => ep.season === s);
+                    const all = eps.every((ep) => selectedEps.has(ep.ratingKey));
+                    const some = eps.some((ep) => selectedEps.has(ep.ratingKey));
+                    return (
+                        <div
+                            key={s}
+                            className={`flex shrink-0 items-center gap-1.5 pl-2 ${
+                                activeTab === s
+                                    ? 'border-b-2 border-[var(--accent)]'
+                                    : ''
+                            }`}
+                        >
+                            <input
+                                type="checkbox"
+                                aria-label={`Select all of season ${s}`}
+                                checked={all}
+                                ref={(el) => {
+                                    if (el) el.indeterminate = !all && some;
+                                }}
+                                onChange={(e) =>
+                                    onToggleAllInSeason(show.ratingKey, eps, e.target.checked)
+                                }
+                            />
+                            <button
+                                onClick={(e) => {
+                                    setActiveTab(s);
+                                    e.currentTarget.scrollIntoView({
+                                        inline: 'nearest',
+                                        block: 'nearest',
+                                        behavior: 'smooth',
+                                    });
+                                }}
+                                className={`whitespace-nowrap py-1.5 pr-3 text-xs font-medium transition-colors ${
+                                    activeTab === s
+                                        ? 'text-[var(--foreground)]'
+                                        : 'muted hover:text-[var(--foreground)]'
+                                }`}
+                            >
+                                Season {s}
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
-            <div className="max-h-[260px] overflow-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="sticky top-0 bg-gray-50">
+            </div>
+            <div className="tbl-wrap mt-3 max-h-[260px]">
+                <table className="tbl tbl-fixed" style={{ minWidth: '40rem' }}>
+                    <colgroup>
+                        <col style={{ width: '2.75rem' }} />
+                        <col style={{ width: '3.5rem' }} />
+                        <col />
+                        <col style={{ width: '8.5rem' }} />
+                        <col style={{ width: '6rem' }} />
+                        <col style={{ width: '5rem' }} />
+                        <col style={{ width: '6.5rem' }} />
+                    </colgroup>
+                    <thead>
                         <tr>
                             <th className="px-3 py-2">
                                 <input
@@ -46,15 +186,19 @@ function ShowEpisodeSelector({ show, episodes, selectedEpisodes, onToggleEpisode
                                     }
                                 />
                             </th>
-                            <th className="px-3 py-2 text-gray-600">Ep</th>
-                            <th className="px-3 py-2 text-gray-600">Title</th>
+                            <th className="px-3 py-2">Ep</th>
+                            <th className="px-3 py-2">Title</th>
+                            <th className="px-3 py-2">Aired</th>
+                            <th className="px-3 py-2">Runtime</th>
+                            <th className="px-3 py-2">Rating</th>
+                            <th className="px-3 py-2" />
                         </tr>
                     </thead>
                     <tbody>
                         {seasonEpisodes.map((ep) => (
                             <tr
                                 key={ep.ratingKey}
-                                className="border-t hover:bg-gray-50 cursor-pointer"
+                                className="cursor-pointer"
                                 onClick={() => onToggleEpisode(show.ratingKey, ep.ratingKey)}
                             >
                                 <td className="px-3 py-1.5">
@@ -65,10 +209,22 @@ function ShowEpisodeSelector({ show, episodes, selectedEpisodes, onToggleEpisode
                                         onClick={(e) => e.stopPropagation()}
                                     />
                                 </td>
-                                <td className="px-3 py-1.5 text-gray-500 whitespace-nowrap">
+                                <td className="px-3 py-1.5 muted whitespace-nowrap">
                                     E{ep.episode}
                                 </td>
                                 <td className="px-3 py-1.5">{ep.title}</td>
+                                <td className="px-3 py-1.5 muted whitespace-nowrap">
+                                    {formatAirDate(ep.airDate)}
+                                </td>
+                                <td className="px-3 py-1.5 muted whitespace-nowrap">
+                                    {formatRuntime(ep.durationMs)}
+                                </td>
+                                <td className="px-3 py-1.5 muted whitespace-nowrap">
+                                    {formatRating(ep.rating)}
+                                </td>
+                                <td className="px-3 py-1.5">
+                                    {ep.watched && <span className="chip chip-accent">Watched</span>}
+                                </td>
                             </tr>
                         ))}
                     </tbody>
@@ -79,10 +235,9 @@ function ShowEpisodeSelector({ show, episodes, selectedEpisodes, onToggleEpisode
 }
 
 export default function SearchPanel({
+    locked = false,
     selected,
     onChangeSelected,
-    playlistOrder,
-    onChangePlaylistOrder,
     episodesByShow,
     selectedEpisodes,
     onToggleEpisode,
@@ -136,9 +291,24 @@ export default function SearchPanel({
         return () => clearTimeout(timer);
     }, [query]);
 
+    const [activeShowKey, setActiveShowKey] = useState(null);
+    const tabsFade = useScrollFade(selected.length);
+    const tabSensors = useSortSensors();
+
+    function handleTabDragEnd({ active, over }) {
+        if (!over || active.id === over.id) return;
+        const from = selected.findIndex((s) => s.ratingKey === active.id);
+        const to = selected.findIndex((s) => s.ratingKey === over.id);
+        if (from < 0 || to < 0) return;
+        onChangeSelected(arrayMove(selected, from, to));
+    }
+    const activeShow =
+        selected.find((s) => s.ratingKey === activeShowKey) ?? selected[0] ?? null;
+
     function addShow(item) {
         if (selected.some((s) => s.ratingKey === item.ratingKey)) return;
         onChangeSelected([...selected, item]);
+        setActiveShowKey(item.ratingKey);
         setQuery('');
         setResults([]);
     }
@@ -165,8 +335,7 @@ export default function SearchPanel({
     }
 
     return (
-        <section className="mt-8 space-y-4">
-            <h2 className="text-lg font-semibold">Search Shows</h2>
+        <section className="mt-5 space-y-4">
 
             <div className="relative" ref={containerRef}>
                 <input
@@ -175,20 +344,20 @@ export default function SearchPanel({
                     onKeyDown={handleKeyDown}
                     type="text"
                     placeholder="Search by title (e.g., The Office)"
-                    className="w-full rounded border px-3 py-2 pr-20"
+                    className="input pr-20"
                 />
                 {loading && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm muted">
                         Searching…
                     </span>
                 )}
                 {error && (
-                    <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded border border-red-200 bg-white px-3 py-2 text-sm text-red-700 shadow">
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 menu px-3 py-2 text-sm text-red-500">
                         {error}
                     </div>
                 )}
                 {!error && results.length > 0 && (
-                    <ul className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-auto rounded border bg-white shadow">
+                    <ul className="absolute left-0 right-0 top-full z-10 mt-1 max-h-64 overflow-auto menu">
                         {results.map((r, i) => {
                             const alreadyAdded = selected.some((s) => s.ratingKey === r.ratingKey);
                             return (
@@ -197,17 +366,17 @@ export default function SearchPanel({
                                     onMouseDown={() => addShow(r)}
                                     onMouseEnter={() => setHighlightedIndex(i)}
                                     className={`flex cursor-pointer items-center justify-between px-3 py-2 ${
-                                        i === highlightedIndex ? 'bg-blue-50' : 'hover:bg-gray-50'
+                                        i === highlightedIndex ? 'bg-[var(--surface-2)]' : 'hover:bg-[var(--surface-2)]'
                                     }`}
                                 >
                                     <div>
                                         <div className="font-medium">{r.title}</div>
-                                        <div className="text-xs text-gray-500">{r.year ?? '—'}</div>
+                                        <div className="text-xs muted">{r.year ?? '—'}</div>
                                     </div>
                                     {i === highlightedIndex && !alreadyAdded ? (
-                                        <span className="text-xs text-gray-400">↵ to add</span>
+                                        <span className="text-xs muted">↵ to add</span>
                                     ) : alreadyAdded ? (
-                                        <span className="text-xs text-gray-400">Added</span>
+                                        <span className="text-xs muted">Added</span>
                                     ) : null}
                                 </li>
                             );
@@ -215,93 +384,96 @@ export default function SearchPanel({
                     </ul>
                 )}
                 {!loading && !error && results.length === 0 && query.trim() && (
-                    <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded border bg-white px-3 py-2 text-sm text-gray-500 shadow">
+                    <div className="absolute left-0 right-0 top-full z-10 mt-1 menu px-3 py-2 text-sm muted">
                         No matches.
                     </div>
                 )}
             </div>
             <div className="pt-4 space-y-4">
-                <h3 className="font-semibold">Selected Shows Settings</h3>
                 {selected.length === 0 ? (
-                    <div className="text-sm text-gray-500">
-                        Nothing selected yet.
+                    <div className="rounded-xl border border-dashed border-[var(--border)] px-4 py-8 text-center">
+                        <div className="font-medium">No shows added yet</div>
+                        <p className="mt-1 text-sm muted">
+                            Search above and press Enter to add a show. Add as
+                            many as you like, then choose which episodes to
+                            include.
+                        </p>
                     </div>
                 ) : (
-                    <ul className="mt-2 space-y-2">
-                        {selected.map((s) => {
-                            const episodes = episodesByShow?.[s.ratingKey] ?? [];
-                            return (
-                                <li
-                                    key={s.ratingKey}
-                                    className="rounded border p-3"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className="font-medium">
-                                                {s.title}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {s.year ?? '—'} · Key:{' '}
-                                                {s.ratingKey}
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() =>
-                                                removeShow(s.ratingKey)
-                                            }
-                                            className="rounded bg-gray-200 px-3 py-1 text-gray-800 hover:bg-gray-300"
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                    {episodes.length === 0 ? (
-                                        <div className="mt-2 border-t pt-2 text-xs text-gray-400">
-                                            Loading episodes…
-                                        </div>
-                                    ) : (
-                                        <ShowEpisodeSelector
-                                            show={s}
-                                            episodes={episodes}
-                                            selectedEpisodes={selectedEpisodes}
-                                            onToggleEpisode={onToggleEpisode}
-                                            onToggleAllInSeason={onToggleAllInSeason}
-                                        />
-                                    )}
-                                </li>
-                            );
-                        })}
-                    </ul>
-                )}
-
-                <div className="space-y-2">
-                    <div className="text-sm font-medium">Playlist order</div>
-                    <div className="flex gap-4">
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="radio"
-                                name="playlistOrder"
-                                value="round-robin"
-                                checked={playlistOrder === 'round-robin'}
-                                onChange={() =>
-                                    onChangePlaylistOrder('round-robin')
-                                }
-                            />
-                            Round robin
-                        </label>
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="radio"
-                                name="playlistOrder"
-                                value="random"
-                                checked={playlistOrder === 'random'}
-                                onChange={() =>
-                                    onChangePlaylistOrder('random')
-                                }
-                            />
-                            Random
-                        </label>
+                    <>
+                    <h3 className="font-semibold">Your shows</h3>
+                    <div>
+                    <DndContext
+                        sensors={tabSensors}
+                        collisionDetection={closestCenter}
+                        modifiers={[lockX]}
+                        onDragEnd={handleTabDragEnd}
+                    >
+                    <div
+                        role="tablist"
+                        aria-label="Selected shows"
+                        className="folder-tabs"
+                        ref={tabsFade.ref}
+                        style={tabsFade.style}
+                    >
+                            <SortableContext
+                                items={selected.map((s) => s.ratingKey)}
+                                strategy={horizontalListSortingStrategy}
+                            >
+                                {selected.map((s) => (
+                                    <SortableTab
+                                        key={s.ratingKey}
+                                        show={s}
+                                        active={activeShow?.ratingKey === s.ratingKey}
+                                        total={(episodesByShow?.[s.ratingKey] ?? []).length}
+                                        chosen={selectedEpisodes?.[s.ratingKey]?.size ?? 0}
+                                        onSelect={() => setActiveShowKey(s.ratingKey)}
+                                        locked={locked}
+                                    />
+                                ))}
+                            </SortableContext>
                     </div>
-                </div>
+                    </DndContext>
+                    {activeShow && (() => {
+                        const s = activeShow;
+                        const episodes = episodesByShow?.[s.ratingKey] ?? [];
+                        return (
+                            <div
+                                role="tabpanel"
+                                className="folder-panel"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="font-medium">{s.title}</div>
+                                        <div className="text-xs muted">{s.year ?? '—'}</div>
+                                    </div>
+                                    <button
+                                        onClick={() => removeShow(s.ratingKey)}
+                                        className="btn btn-secondary btn-sm"
+                                    >
+                                        Remove show
+                                    </button>
+                                </div>
+                                {episodes.length === 0 ? (
+                                    <div className="mt-2 border-t border-[var(--border)] pt-2 text-xs muted">
+                                        Loading episodes…
+                                    </div>
+                                ) : (
+                                    <ShowEpisodeSelector
+                                        key={s.ratingKey}
+                                        show={s}
+                                        episodes={episodes}
+                                        selectedEpisodes={selectedEpisodes}
+                                        onToggleEpisode={onToggleEpisode}
+                                        onToggleAllInSeason={onToggleAllInSeason}
+                                    />
+                                )}
+                            </div>
+                        );
+                    })()}
+                    </div>
+                    </>
+                )}
             </div>
         </section>
     );

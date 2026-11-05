@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import ThemeToggle from './ThemeToggle';
 
 const geistSans = Geist({
     variable: '--font-geist-sans',
@@ -16,13 +17,20 @@ export const metadata = {
     description: 'Manage and mix your Plex show playlists',
 };
 
+// Runs before first paint so the saved/system theme applies without a flash.
+const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t}catch(e){}})()`;
+
 export default function RootLayout({ children }) {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
+            <head>
+                <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+            </head>
             <body
                 className={`${geistSans.variable} ${geistMono.variable} antialiased`}
             >
                 {children}
+                <ThemeToggle />
             </body>
         </html>
     );

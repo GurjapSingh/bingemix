@@ -28,49 +28,33 @@ export default function ServersPanel({ onSelect }) {
     }, []);
     return (
         <section className="mt-4 space-y-3">
-            <h2 className="font-semibold">Your Plex Servers</h2>
-            {loading && <div>Loading…</div>}
-            {error && <div className="text-red-600 text-sm">{error}</div>}
+            <p className="text-sm muted">Choose the Plex server to build playlists on.</p>
+            {loading && <div className="text-sm muted">Loading…</div>}
+            {error && <div className="alert alert-danger">{error}</div>}
             {!loading && !error && servers.length === 0 && (
-                <div className="text-sm text-gray-600">No servers found.</div>
+                <div className="text-sm muted">No servers found.</div>
             )}
             <ul className="space-y-2">
                 {servers.map((s) => (
                     <li
                         key={s.machineId}
-                        className="flex items-start justify-between rounded border p-3"
+                        className="row flex items-start justify-between gap-4"
                     >
-                        <div>
-                            <div className="font-medium">{s.name}</div>
-                            {s.connections?.length ? (
-                                <ul className="mt-1 space-y-0.5">
-                                    {s.connections.map((c) => (
-                                        <li
-                                            key={c.uri}
-                                            className="text-xs text-gray-500"
-                                        >
-                                            <span
-                                                className={`mr-1 rounded px-1 ${
-                                                    c.local
-                                                        ? 'bg-gray-200'
-                                                        : 'bg-blue-100 text-blue-700'
-                                                }`}
-                                            >
-                                                {c.local ? 'local' : 'remote'}
-                                            </span>
-                                            {c.uri}
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <div className="text-xs text-gray-500">
-                                    No connections
-                                </div>
-                            )}
+                        <div className="min-w-0">
+                            <div className="font-semibold">{s.name}</div>
+                            <div className="mt-1.5 flex gap-1.5">
+                                {s.hasLocal && <span className="chip">Local network</span>}
+                                {s.hasRemote && (
+                                    <span className="chip chip-accent">Remote access</span>
+                                )}
+                                {!s.hasLocal && !s.hasRemote && (
+                                    <span className="text-xs muted">No connections</span>
+                                )}
+                            </div>
                         </div>
                         <button
                             disabled={connectingId === s.machineId}
-                            className="px-3 py-1 rounded bg-black text-white disabled:opacity-50"
+                            className="btn btn-primary btn-sm"
                             onClick={async () => {
                                 setConnectingId(s.machineId);
                                 setError('');
@@ -85,8 +69,6 @@ export default function ServersPanel({ onSelect }) {
                                             },
                                             body: JSON.stringify({
                                                 machineId: s.machineId,
-                                                accessToken: s.accessToken,
-                                                connections: s.connections,
                                             }),
                                         }
                                     );

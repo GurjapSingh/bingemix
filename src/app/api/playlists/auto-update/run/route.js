@@ -1,25 +1,28 @@
-import { cookies } from 'next/headers';
-import { reconcileAll } from '@/lib/reconcile';
-import { readState } from '@/lib/stateStore';
+import { requireSession } from '@/lib/session';
+import { reconcileAccount } from '@/lib/reconcile';
+import { readAccount } from '@/lib/stateStore';
 
 export async function POST() {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get('plex_user_token')?.value;
-        if (!token) {
-            return Response.json(
-                { error: 'Not authenticated' },
-                { status: 401 }
-            );
-        }
+        const { session, response } = await requireSession();
+        if (response) return response;
 
-        await reconcileAll();
-        const state = await readState();
+        // Only this account's playlists; other accounts are untouched.
+        try {
+            await reconcileAccount(session.accountId);
+        } catch (err) {
+            // A 401 marks the account invalid; surfaced via authInvalid below.
+            console.error('manual reconcile error', err.message);
+        }
+        const account = await readAccount(session.accountId);
+        const machineId = session.server?.machineId;
 
         return Response.json({
             ok: true,
-            playlists: state.playlists,
-            authInvalid: state.auth?.invalid || false,
+            playlists: account.playlists.filter(
+                (p) => p.serverMachineId === machineId
+            ),
+            authInvalid: account.servers[machineId]?.invalid || false,
         });
     } catch (err) {
         console.error('manual reconcile error', err);

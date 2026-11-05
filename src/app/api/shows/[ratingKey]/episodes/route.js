@@ -1,19 +1,11 @@
-import { cookies } from 'next/headers';
+import { requireSession } from '@/lib/session';
 
 export async function GET(req, { params }) {
     const { ratingKey } = await params;
     try {
-        const cookieStore = await cookies();
-        const serverRaw = cookieStore.get('plex_server')?.value;
-
-        if (!serverRaw) {
-            return Response.json(
-                { error: 'Missing server or library' },
-                { status: 401 }
-            );
-        }
-
-        const server = JSON.parse(serverRaw);
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
+        const server = session.server;
 
         const url = new URL(
             `/library/metadata/${ratingKey}/allLeaves`,
@@ -41,6 +33,12 @@ export async function GET(req, { params }) {
                 season: i.parentIndex,
                 episode: i.index,
                 title: i.title,
+                airDate: i.originallyAvailableAt ?? null,
+                durationMs: i.duration ?? null,
+                // Plex's audience score when present, else the critic score (0-10).
+                rating: i.audienceRating ?? i.rating ?? null,
+                // Per-account: reflects the logged-in profile's watch history.
+                watched: (i.viewCount ?? 0) > 0,
             }))
             .filter((ep) => Number(ep.season) > 0);
 

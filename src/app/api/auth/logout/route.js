@@ -1,25 +1,27 @@
-import { cookies } from 'next/headers';
-import { updateState } from '@/lib/stateStore';
+import { getSession, destroySession } from '@/lib/session';
+import { updateAccount, readAccount } from '@/lib/stateStore';
+import { writeMarker } from '@/lib/marker';
 
-export async function POST(req) {
-    const cookieStore = await cookies();
-    const opts = {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: req.nextUrl.protocol === 'https:',
-        path: '/',
-        maxAge: 0,
-    };
+export async function POST() {
+    const session = await getSession();
 
-    cookieStore.set('plex_user_token', '', opts);
-    cookieStore.set('plex_server', '', opts);
-    cookieStore.set('plex_library', '', opts);
-
-    await updateState((state) => ({
-        ...state,
-        auth: null,
-        playlists: state.playlists.map((p) => ({ ...p, enabled: false })),
-    }));
+    if (session?.accountId) {
+        // Logging out turns auto-update off, so remove our notes from Plex too.
+        if (session.server) {
+            const account = await readAccount(session.accountId);
+            for (const p of account.playlists) {
+                if (p.enabled && p.serverMachineId === session.server.machineId) {
+                    await writeMarker(session.server, p.sourcePlaylistKey, false).catch(() => {});
+                }
+            }
+        }
+        await updateAccount(session.accountId, (account) => ({
+            ...account,
+            servers: {},
+            playlists: account.playlists.map((p) => ({ ...p, enabled: false })),
+        }));
+    }
+    await destroySession();
 
     return Response.json({ ok: true });
 }

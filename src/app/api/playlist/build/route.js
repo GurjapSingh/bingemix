@@ -1,79 +1,72 @@
-import { cookies } from 'next/headers';
+import { requireSession } from '@/lib/session';
 import { getItemsMetadata } from '@/lib/plexClient';
-import { setBaseline } from '@/lib/db';
+import { setBaseline, scopedKey } from '@/lib/db';
+import { ndjson } from '@/lib/stream';
 
 export async function POST(req) {
+    let body;
     try {
-        const { title = 'Show Mixer', episodeKeys = [] } = await req.json();
+        body = await req.json();
+    } catch {
+        return Response.json({ error: 'Invalid request' }, { status: 400 });
+    }
+    const { title = 'Show Mixer', episodeKeys = [] } = body;
 
-        if (!Array.isArray(episodeKeys) || episodeKeys.length === 0) {
-            return Response.json(
-                { error: 'episodeKeys required' },
-                { status: 400 }
-            );
-        }
+    if (!Array.isArray(episodeKeys) || episodeKeys.length === 0) {
+        return Response.json({ error: 'episodeKeys required' }, { status: 400 });
+    }
 
-        const cookieStore = await cookies();
-        const raw = cookieStore.get('plex_server')?.value;
-        if (!raw)
-            return Response.json(
-                { error: 'Not connected to Plex' },
-                { status: 401 }
-            );
+    const { session, response } = await requireSession({ server: true });
+    if (response) return response;
+    const { uri, accessToken, machineId } = session.server;
+    const accountId = session.accountId;
 
-        const { uri, accessToken, machineId } = JSON.parse(raw);
-
-        const firstKey = episodeKeys[0];
+    // Plex needs several requests, so report each stage as it happens.
+    return ndjson(async (send) => {
+        send({ stage: 'creating' });
 
         const createUrl = new URL('/playlists', uri);
         createUrl.searchParams.set('type', 'video');
         createUrl.searchParams.set('title', title);
         createUrl.searchParams.set('smart', '0');
         createUrl.searchParams.set('X-Plex-Token', accessToken);
-        createUrl.searchParams.append('uri', `/library/metadata/${firstKey}`);
+        createUrl.searchParams.append('uri', `/library/metadata/${episodeKeys[0]}`);
 
         const createRes = await fetch(createUrl, {
             method: 'POST',
             headers: { Accept: 'application/json' },
         });
         if (!createRes.ok) {
-            const details = await createRes.text();
-            return Response.json(
-                { error: 'Failed to create playlist', details },
-                { status: 502 }
-            );
+            throw new Error(`Plex could not create the playlist (${createRes.status})`);
         }
         const created = await createRes.json();
         const playlistKey = created?.MediaContainer?.Metadata?.[0]?.ratingKey;
-        if (!playlistKey) {
-            return Response.json(
-                { error: 'No playlist key returned' },
-                { status: 502 }
-            );
-        }
+        if (!playlistKey) throw new Error('Plex did not return a playlist');
+
+        // The first episode was added at creation time.
+        let added = 1;
+        send({ stage: 'adding', done: added, total: episodeKeys.length });
 
         const chunkSize = 100;
-        let added = 0;
-        for (let i = 0; i < episodeKeys.length; i += chunkSize) {
-            const chunkPrefix = `server://${machineId}/com.plexapp.plugins.library/library/metadata/`;
-            const chunk = episodeKeys.slice(i, i + chunkSize).join(',');
+        const chunkPrefix = `server://${machineId}/com.plexapp.plugins.library/library/metadata/`;
+        // Start after the first episode, which creating the playlist already added.
+        for (let i = 1; i < episodeKeys.length; i += chunkSize) {
+            const chunk = episodeKeys.slice(i, i + chunkSize);
             const addUrl = new URL(`/playlists/${playlistKey}/items`, uri);
-            addUrl.searchParams.set('uri', chunkPrefix + chunk);
+            addUrl.searchParams.set('uri', chunkPrefix + chunk.join(','));
             addUrl.searchParams.set('X-Plex-Token', accessToken);
             const addRes = await fetch(addUrl, {
                 method: 'PUT',
                 headers: { Accept: 'application/json' },
             });
             if (!addRes.ok) {
-                const details = await addRes.text();
-                return Response.json(
-                    { error: 'Failed to add items', details },
-                    { status: 502 }
-                );
+                throw new Error(`Plex could not add episodes (${addRes.status})`);
             }
-            added += Math.min(chunkSize, episodeKeys.length - i);
+            added += chunk.length;
+            send({ stage: 'adding', done: added, total: episodeKeys.length });
         }
 
+        send({ stage: 'finishing' });
         const metadata = await getItemsMetadata(
             { uri, accessToken, machineId },
             episodeKeys
@@ -82,15 +75,14 @@ export async function POST(req) {
             metadata.map((m) => [String(m.ratingKey), m.viewCount ?? 0])
         );
         for (const key of episodeKeys) {
-            setBaseline(playlistKey, key, viewCountByKey.get(String(key)) ?? 0);
+            setBaseline(
+                accountId,
+                scopedKey(machineId, playlistKey),
+                key,
+                viewCountByKey.get(String(key)) ?? 0
+            );
         }
 
-        return Response.json(
-            { ok: true, playlistKey, added },
-            { headers: { 'Cache-Control': 'no-store' } }
-        );
-    } catch (err) {
-        console.error('playlist build error', err);
-        return Response.json({ error: 'Server error' }, { status: 500 });
-    }
+        send({ stage: 'done', playlistKey, added });
+    });
 }

@@ -6,16 +6,22 @@ export default function WelcomePage() {
     const router = useRouter();
 
     return (
-        <div className="flex flex-col items-center justify-center h-screen text-center">
-            <h1 className="text-3xl font-bold mb-6">Welcome to Plex Mixer</h1>
-            <p className="text-lg mb-8">
-                Get started by setting up your Plex account.
+        <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent)] text-3xl text-[var(--accent-fg)] shadow-lg">
+                ▶
+            </div>
+            <h1 className="mb-3 text-4xl font-bold tracking-tight">
+                Plex Show Mixer
+            </h1>
+            <p className="mb-8 max-w-md text-lg muted">
+                Build playlists that mix episodes from your favourite shows, and
+                keep them fresh automatically.
             </p>
             <button
                 onClick={() => router.push('/setup')}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                className="btn btn-primary px-6 py-3 text-base"
             >
-                Get Started
+                Get started
             </button>
         </div>
     );

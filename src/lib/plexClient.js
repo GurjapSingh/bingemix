@@ -44,6 +44,13 @@ export async function getPlaylist(server, playlistKey) {
     return data?.MediaContainer?.Metadata?.[0] || null;
 }
 
+export async function setPlaylistSummary(server, playlistKey, summary) {
+    const url = new URL(`/playlists/${playlistKey}`, server.uri);
+    url.searchParams.set('summary', summary);
+    url.searchParams.set('X-Plex-Token', server.accessToken);
+    await plexFetch(url, { method: 'PUT' });
+}
+
 export async function getPlaylistItems(server, playlistKey) {
     const url = new URL(`/playlists/${playlistKey}/items`, server.uri);
     url.searchParams.set('X-Plex-Token', server.accessToken);

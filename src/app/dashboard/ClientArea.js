@@ -19,6 +19,8 @@ export default function ClientArea() {
     const [episodesError, setEpisodesError] = useState('');
     const [playlistRefreshKey, setPlaylistRefreshKey] = useState(0);
     const [editingPlaylist, setEditingPlaylist] = useState(null);
+    // True while a playlist is being created/updated: reordering is locked.
+    const [saving, setSaving] = useState(false);
     const fetchedShowsRef = useRef(new Set());
     const step3Ref = useRef(null);
 
@@ -123,7 +125,11 @@ export default function ClientArea() {
         // Seed selections before setting selected so the fetch useEffect doesn't overwrite them
         setSelectedEpisodes(initialSelection);
         setSelected([...showsMap.values()]);
-        setEditingPlaylist({ playlistKey, title });
+        setEditingPlaylist({
+            playlistKey,
+            title,
+            order: items.map((i) => String(i.ratingKey)),
+        });
         setTimeout(() => step3Ref.current?.scrollIntoView({ behavior: 'smooth' }), 0);
     }, []);
 
@@ -160,18 +166,53 @@ export default function ClientArea() {
     }
 
     return (
-        <section className="space-y-6">
-            {/* 1. Check server cookie*/}
-            <div className="rounded border p-4">
-                <h2 className="font-semibold">Step 1: Choose a Plex server</h2>
+        <section className="space-y-5">
+            {/* Steps 1-2: full cards while choosing, one slim bar once both are done */}
+            {serverTitle && (libraryTitle || editingPlaylist) ? (
+                <div className="card divide-y divide-[var(--border)] py-1">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
+                        <span className="step-badge">Step 1</span>
+                        <span className="muted text-sm">Plex server</span>
+                        <span className="font-semibold">{serverTitle}</span>
+                        <button
+                            onClick={doServerChange}
+                            className="btn btn-ghost btn-sm"
+                        >
+                            Change
+                        </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3">
+                        <span className="step-badge">Step 2</span>
+                        <span className="muted text-sm">Library</span>
+                        {libraryTitle ? (
+                            <>
+                                <span className="font-semibold">{libraryTitle}</span>
+                                <button
+                                    onClick={doLibraryChange}
+                                    className="btn btn-ghost btn-sm"
+                                >
+                                    Change
+                                </button>
+                            </>
+                        ) : (
+                            <span className="muted text-sm">
+                                Not needed while editing a playlist
+                            </span>
+                        )}
+                    </div>
+                </div>
+            ) : (
+                <>
+            <div className="card">
+                <h2 className="card-title"><span className="step-badge">Step 1</span>Choose a Plex server</h2>
                 {serverTitle ? (
                     <>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm muted mt-2">
                             Selected server: {serverTitle}
                         </p>
                         <button
                             onClick={doServerChange}
-                            className="rounded bg-gray-200 px-3 py-1"
+                            className="btn btn-secondary btn-sm mt-3"
                         >
                             Change Server
                         </button>
@@ -181,18 +222,17 @@ export default function ClientArea() {
                 )}
             </div>
 
-            {/* 2. check for selected library*/}
             {serverTitle && (
-                <div className="rounded border p-4">
-                    <h2 className="font-semibold">Step 2: Choose a Library</h2>
+                <div className="card">
+                    <h2 className="card-title"><span className="step-badge">Step 2</span>Choose a library</h2>
                     {libraryTitle ? (
                         <>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm muted mt-2">
                                 Selected library: {libraryTitle}
                             </p>
                             <button
                                 onClick={doLibraryChange}
-                                className="rounded bg-gray-200 px-3 py-1"
+                                className="btn btn-secondary btn-sm mt-3"
                             >
                                 Change Library
                             </button>
@@ -203,27 +243,36 @@ export default function ClientArea() {
                 </div>
             )}
 
+                </>
+            )}
+
             {/* 3. Search and preview */}
             {serverTitle && (libraryTitle || editingPlaylist) && (
-                <div className="rounded border p-4" ref={step3Ref}>
-                    <h2 className="font-semibold">
-                        {editingPlaylist
-                            ? `Editing: ${editingPlaylist.title}`
-                            : 'Step 3: Search and select shows'}
+                <div className="card" ref={step3Ref}>
+                    <h2 className="card-title">
+                        {editingPlaylist ? (
+                            `Editing: ${editingPlaylist.title}`
+                        ) : (
+                            <>
+                                <span className="step-badge">Step 3</span>
+                                Search and select shows
+                            </>
+                        )}
                     </h2>
                     <SearchPanel
+                        locked={saving}
                         selected={selected}
                         onChangeSelected={setSelected}
-                        playlistOrder={playlistOrder}
-                        onChangePlaylistOrder={setPlaylistOrder}
                         episodesByShow={episodesByShow}
                         selectedEpisodes={selectedEpisodes}
                         onToggleEpisode={toggleEpisode}
                         onToggleAllInSeason={toggleAllInSeason}
                     />
                     <PreviewPanel
+                        onBusyChange={setSaving}
                         selected={selected}
                         playlistOrder={playlistOrder}
+                        onChangePlaylistOrder={setPlaylistOrder}
                         episodesByShow={episodesByShow}
                         selectedEpisodes={selectedEpisodes}
                         episodesError={episodesError}
@@ -238,11 +287,11 @@ export default function ClientArea() {
                 </div>
             )}
 
-            {/* 4. Manage auto-update playlists */}
+            {/* 4. Existing playlists */}
             {serverTitle && (
-                <div className="rounded border p-4">
-                    <h2 className="font-semibold">
-                        Manage Auto-Update Playlists
+                <div className="card">
+                    <h2 className="card-title">
+                        Existing playlists
                     </h2>
                     <PlaylistsPanel
                         refreshKey={playlistRefreshKey}

@@ -32,33 +32,30 @@ export default function LibrariesPanel({ onSelect }) {
     }, []);
 
     return (
-        <section className="mt-6 space-y-4">
-            <h2 className="text-lg font-semibold">Your Plex Libraries</h2>
+        <section className="mt-4 space-y-3">
+            <p className="text-sm muted">Pick the TV library to build playlists from.</p>
 
-            {loading && <div className="text-gray-500">Loading libraries…</div>}
+            {loading && <div className="muted">Loading libraries…</div>}
             {error && (
-                <div className="rounded bg-red-100 px-3 py-2 text-sm text-red-700">
+                <div className="alert alert-danger">
                     {error}
                 </div>
             )}
 
             {!loading && !error && libraries.length === 0 && (
-                <div className="text-gray-500 text-sm">
+                <div className="muted text-sm">
                     No TV libraries found.
                 </div>
             )}
 
-            <ul className="space-y-3">
+            <ul className="space-y-2">
                 {libraries.map((l) => (
                     <li
                         key={l.key}
-                        className="flex items-center justify-between rounded border p-3 hover:bg-gray-50"
+                        className="row flex items-center justify-between"
                     >
                         <div>
                             <div className="font-medium">{l.title}</div>
-                            <div className="text-xs text-gray-500">
-                                Key: {l.key}
-                            </div>
                         </div>
                         <button
                             onClick={async () => {
@@ -74,7 +71,7 @@ export default function LibrariesPanel({ onSelect }) {
                                 });
                                 onSelect(l.title);
                             }}
-                            className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700 transition"
+                            className="btn btn-primary btn-sm"
                         >
                             Select
                         </button>

@@ -1,16 +1,10 @@
-import { cookies } from 'next/headers';
+import { requireSession } from '@/lib/session';
 
 export async function GET() {
     try {
-        const cookieStore = await cookies();
-        const cookieData = cookieStore?.get('plex_server')?.value;
-        if (!cookieData) {
-            return Response.json(
-                { error: 'Unable to retrieve token' },
-                { status: 404 }
-            );
-        }
-        const server = JSON.parse(cookieData);
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
+        const server = session.server;
 
         const url = new URL('/library/sections', server.uri);
         url.searchParams.set('X-Plex-Token', server.accessToken);

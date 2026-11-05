@@ -1,6 +1,16 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 
+function timeAgo(iso) {
+    if (!iso) return 'unknown';
+    const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (mins < 2) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 48) return `${hrs}h ago`;
+    return `${Math.round(hrs / 24)} days ago`;
+}
+
 export default function PlaylistsPanel({ refreshKey, onEditPlaylist }) {
     const [playlists, setPlaylists] = useState([]);
     const [authInvalid, setAuthInvalid] = useState(false);
@@ -101,57 +111,98 @@ export default function PlaylistsPanel({ refreshKey, onEditPlaylist }) {
 
     return (
         <section className="mt-4 space-y-3">
+            <p className="text-sm muted">
+                Turn on auto-update and watched episodes are removed from the
+                playlist automatically, so it always shows what&apos;s left to
+                watch.
+            </p>
             {authInvalid && (
-                <div className="flex items-center justify-between rounded border border-red-300 bg-red-50 p-3 text-sm">
+                <div className="alert alert-danger flex items-center justify-between gap-3">
                     <span>
                         Auto-update lost access to your Plex account. Reconnect to resume.
                     </span>
-                    <button onClick={reconnect} className="rounded bg-black px-3 py-1 text-white">
+                    <button onClick={reconnect} className="btn btn-primary btn-sm">
                         Reconnect auto-update
                     </button>
                 </div>
             )}
             {loading && <div>Loading…</div>}
-            {error && <div className="text-sm text-red-600">{error}</div>}
+            {error && <div className="alert alert-danger">{error}</div>}
             {!loading && !error && playlists.length === 0 && (
-                <div className="text-sm text-gray-600">No playlists found on this server.</div>
+                <div className="text-sm muted">No playlists found on this server.</div>
             )}
             <ul className="space-y-2">
                 {playlists.map((p) => {
                     const sp = savepoints[p.playlistKey];
                     return (
-                        <li key={p.playlistKey} className="rounded border p-3 space-y-1">
+                        <li key={p.playlistKey} className="row space-y-3">
                             <div className="flex items-center justify-between">
-                                <span className="font-medium">{p.title}</span>
+                                <span className="font-semibold">{p.title}</span>
                                 <div className="flex items-center gap-2">
                                     <button
+                                        role="switch"
+                                        aria-checked={!!p.autoUpdateEnabled}
                                         onClick={() => toggleAutoUpdate(p)}
-                                        className={`rounded px-3 py-1 text-sm text-white ${p.autoUpdateEnabled ? 'bg-black' : 'bg-gray-400'}`}
+                                        title={
+                                            p.autoUpdateEnabled
+                                                ? 'Click to turn auto-update off'
+                                                : 'Click to turn auto-update on'
+                                        }
+                                        className="mr-1 flex items-center gap-2 text-sm"
                                     >
-                                        {p.autoUpdateEnabled ? 'Auto-update: On' : 'Auto-update: Off'}
+                                        <span className="text-sm">Auto-update</span>
+                                        <span
+                                            className="switch"
+                                            data-on={!!p.autoUpdateEnabled}
+                                        >
+                                            <span />
+                                        </span>
                                     </button>
                                     <button
                                         onClick={() => onEditPlaylist(p.playlistKey, p.title)}
-                                        className="rounded bg-gray-200 px-3 py-1 text-sm"
+                                        className="btn btn-secondary btn-sm"
                                     >
                                         Edit
                                     </button>
                                     <button
                                         onClick={() => deletePlaylist(p)}
                                         disabled={deletingKey === p.playlistKey}
-                                        className="rounded bg-red-100 px-3 py-1 text-sm text-red-700 disabled:opacity-50"
+                                        className="btn btn-danger btn-sm"
                                     >
                                         {deletingKey === p.playlistKey ? 'Deleting…' : 'Delete'}
                                     </button>
                                 </div>
                             </div>
 
+                            {p.externalAutoUpdate && (
+                                <div className="alert alert-warn text-xs">
+                                    {p.externalAutoUpdate.stale ? (
+                                        <>
+                                            Was auto-updated by another Plex Show Mixer (
+                                            {p.externalAutoUpdate.host}), last
+                                            checked {timeAgo(p.externalAutoUpdate.lastChecked)}. It may
+                                            have stopped.
+                                        </>
+                                    ) : (
+                                        <>
+                                            Already being auto-updated by another Plex Show
+                                            Mixer ({p.externalAutoUpdate.host}), last
+                                            checked {timeAgo(p.externalAutoUpdate.lastChecked)}.
+                                            {!p.autoUpdateEnabled
+                                                ? ' Turning it on here would run it twice.'
+                                                : ' It is also on here, so both are running.'}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => saveSavepoint(p.playlistKey)}
                                         disabled={savepointLoadingKey === p.playlistKey}
-                                        className="rounded bg-gray-100 px-3 py-1 text-sm disabled:opacity-50"
+                                        className="btn btn-ghost btn-sm"
+                                        title="Remember the playlist as it is now, so you can reset it to this later"
                                     >
                                         {savepointLoadingKey === p.playlistKey ? 'Saving…' : 'Set save point'}
                                     </button>
@@ -159,7 +210,7 @@ export default function PlaylistsPanel({ refreshKey, onEditPlaylist }) {
                                         <button
                                             onClick={() => restoreSavepoint(p.playlistKey)}
                                             disabled={restoringKey === p.playlistKey}
-                                            className="rounded bg-amber-100 px-3 py-1 text-sm text-amber-800 disabled:opacity-50"
+                                            className="btn btn-warn btn-sm"
                                         >
                                             {restoringKey === p.playlistKey
                                                 ? 'Restoring…'
@@ -168,12 +219,12 @@ export default function PlaylistsPanel({ refreshKey, onEditPlaylist }) {
                                     )}
                                 </div>
                                 {p.autoUpdateEnabled && (
-                                    <div className="text-xs text-gray-500 text-right">
+                                    <div className="text-xs muted text-right">
                                         {p.lastPolledAt && (
                                             <div>Last checked: {new Date(p.lastPolledAt).toLocaleString()}</div>
                                         )}
                                         {p.lastError && (
-                                            <div className="text-red-600">{p.lastError}</div>
+                                            <div className="text-red-500">{p.lastError}</div>
                                         )}
                                     </div>
                                 )}

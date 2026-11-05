@@ -1,33 +1,45 @@
-import { cookies } from 'next/headers';
+import { requireSession } from '@/lib/session';
 import { listPlaylists } from '@/lib/plexClient';
-import { readState } from '@/lib/stateStore';
+import { readAccount } from '@/lib/stateStore';
+import { parseMarker, isStale, ourInstance } from '@/lib/marker';
 
 export async function GET() {
     try {
-        const cookieStore = await cookies();
-        const raw = cookieStore.get('plex_server')?.value;
-        if (!raw) {
-            return Response.json(
-                { error: 'Not connected to Plex' },
-                { status: 401 }
-            );
-        }
-        const server = JSON.parse(raw);
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
+        const server = session.server;
+        const accountId = session.accountId;
 
-        const [playlists, state] = await Promise.all([
+        const [playlists, account] = await Promise.all([
             listPlaylists(server),
-            readState(),
+            readAccount(accountId),
         ]);
 
+        // Only this server's entries: playlist keys repeat across servers.
         const byKey = new Map(
-            state.playlists.map((p) => [p.sourcePlaylistKey, p])
+            account.playlists
+                .filter((p) => p.serverMachineId === server.machineId)
+                .map((p) => [p.sourcePlaylistKey, p])
         );
+
+        const me = await ourInstance();
 
         const result = playlists
             .filter((p) => !p.title?.endsWith('_watched'))
             .map((p) => {
                 const entry = byKey.get(p.ratingKey);
+                // Is a different copy of Plex Show Mixer already updating this playlist?
+                const marker = parseMarker(p.summary);
+                const external =
+                    marker && marker.instanceId !== me.id
+                        ? {
+                              host: marker.host,
+                              lastChecked: marker.lastChecked,
+                              stale: isStale(marker),
+                          }
+                        : null;
                 return {
+                    externalAutoUpdate: external,
                     playlistKey: p.ratingKey,
                     title: p.title,
                     autoUpdateEnabled: entry?.enabled || false,
@@ -40,7 +52,7 @@ export async function GET() {
 
         return Response.json({
             playlists: result,
-            authInvalid: state.auth?.invalid || false,
+            authInvalid: account.servers[server.machineId]?.invalid || false,
         });
     } catch (err) {
         console.error('playlists list error', err);

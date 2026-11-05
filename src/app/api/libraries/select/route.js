@@ -1,18 +1,12 @@
-import { cookies } from 'next/headers';
+import { requireSession, setSessionLibrary } from '@/lib/session';
 
 export async function POST(req) {
     try {
-        const body = await req.json();
-        const { key, title } = body;
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
 
-        const cookieStore = await cookies();
-        cookieStore.set('plex_library', JSON.stringify({ key, title }), {
-            httpOnly: true,
-            sameSite: 'no-cache',
-            secure: req.nextUrl.protocol === 'https:',
-            path: '/',
-            maxAge: 60 * 60 * 24 * 30,
-        });
+        const { key, title } = await req.json();
+        setSessionLibrary(session, { key: String(key), title });
         return Response.json({ ok: true });
     } catch (e) {
         console.error('Error selecting library', e);

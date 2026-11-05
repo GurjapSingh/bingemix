@@ -1,4 +1,5 @@
-import { cookies } from 'next/headers';
+import { requireSession, setSessionServer } from '@/lib/session';
+import { getServerResources } from '@/lib/plexTv';
 
 const PROBE_TIMEOUT_MS = 4000;
 
@@ -34,44 +35,51 @@ async function probeConnection(uri, accessToken) {
 
 export async function POST(req) {
     try {
-        const body = await req.json();
-        const { machineId, accessToken, connections, uri } = body;
+        const { session, response } = await requireSession();
+        if (response) return response;
 
-        if (!machineId || !accessToken) {
-            return Response.json(
-                { error: 'Machine id mismatch' },
-                { status: 400 }
-            );
+        const { machineId } = await req.json();
+        if (!machineId) {
+            return Response.json({ error: 'machineId required' }, { status: 400 });
         }
 
-        // Accept either a pre-resolved `uri` (back-compat) or a list of
-        // candidate `connections` to probe. This app may run on a different
-        // network than the Plex server, so a "local" connection URI isn't
-        // guaranteed to be reachable, and a "remote"/public one may be
-        // blocked by NAT loopback if the app happens to share the LAN — so
-        // every candidate is actually tested rather than guessed.
-        const candidates = Array.isArray(connections)
-            ? [...connections].sort((a, b) =>
-                  a.local === b.local ? 0 : a.local ? -1 : 1
-              )
-            : uri
-              ? [{ uri }]
-              : [];
+        // Look the server up server-side: its access token never touches the browser.
+        const resources = await getServerResources(session.token);
+        const resource = resources.find((r) => r.clientIdentifier === machineId);
+        if (!resource) {
+            return Response.json({ error: 'Unknown server' }, { status: 404 });
+        }
+        const accessToken = resource.accessToken;
+
+        // This app may run on a different network than the Plex server, so a
+        // "local" connection URI isn't guaranteed to be reachable, and a
+        // "remote"/public one may be blocked by NAT loopback if the app
+        // happens to share the LAN, so every candidate is actually tested.
+        const candidates = [...(resource.connections || [])].sort((a, b) =>
+            a.local === b.local ? 0 : a.local ? -1 : 1
+        );
 
         if (candidates.length === 0) {
             return Response.json(
-                { error: 'No server connection info provided' },
+                { error: 'No server connection info available' },
                 { status: 400 }
             );
         }
 
+        // Probe every candidate at once (each has its own timeout), then take
+        // the highest-priority one that works. Waiting in priority order means
+        // a fast local connection wins immediately, while unreachable ones
+        // (e.g. the server's Docker bridge addresses) don't slow things down.
+        const probes = candidates.map((conn) =>
+            probeConnection(conn.uri, accessToken)
+        );
         let workingUri = null;
         const attempts = [];
-        for (const conn of candidates) {
-            const result = await probeConnection(conn.uri, accessToken);
+        for (const probe of probes) {
+            const result = await probe;
             attempts.push(result);
             if (result.ok) {
-                workingUri = conn.uri;
+                workingUri = result.uri;
                 break;
             }
         }
@@ -84,28 +92,15 @@ export async function POST(req) {
             return Response.json(
                 {
                     error: 'Could not reach this Plex server',
-                    details: attempts
-                        .map((a) => `${a.uri}: ${a.ok ? 'ok' : a.reason || `HTTP ${a.status}`}`)
-                        .join(' | '),
-                    attempts,
+                    details:
+                        'No address for this server could be reached from where the app is running. Check that the app can reach your Plex server on the network.',
                 },
                 { status: 502 }
             );
         }
 
-        const cookieStore = await cookies();
-        cookieStore.set(
-            'plex_server',
-            JSON.stringify({ machineId, accessToken, uri: workingUri }),
-            {
-                httpOnly: true,
-                sameSite: 'lax',
-                secure: req.nextUrl.protocol === 'https:',
-                path: '/',
-                maxAge: 60 * 60 * 24 * 30,
-            }
-        );
-        return Response.json({ ok: true, uri: workingUri });
+        setSessionServer(session, { machineId, accessToken, uri: workingUri });
+        return Response.json({ ok: true });
     } catch (error) {
         console.error('Error selecting server', error);
         return Response.json({ error: 'Server error' }, { status: 500 });

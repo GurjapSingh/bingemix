@@ -1,10 +1,10 @@
-import { cookies } from 'next/headers';
+import { requireSession } from '@/lib/session';
 import {
     getPlaylistItems,
     removePlaylistItem,
     movePlaylistItem,
 } from '@/lib/plexClient';
-import { deleteBaseline } from '@/lib/db';
+import { deleteBaseline, scopedKey } from '@/lib/db';
 
 function mapItem(item) {
     return {
@@ -18,23 +18,13 @@ function mapItem(item) {
     };
 }
 
-async function getServer() {
-    const cookieStore = await cookies();
-    const raw = cookieStore.get('plex_server')?.value;
-    if (!raw) return null;
-    return JSON.parse(raw);
-}
-
 export async function GET(req, { params }) {
     try {
         const { playlistKey } = await params;
-        const server = await getServer();
-        if (!server) {
-            return Response.json(
-                { error: 'Not connected to Plex' },
-                { status: 401 }
-            );
-        }
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
+        const server = session.server;
+        const accountId = session.accountId;
 
         const items = await getPlaylistItems(server, playlistKey);
         return Response.json(
@@ -59,13 +49,10 @@ export async function PUT(req, { params }) {
             );
         }
 
-        const server = await getServer();
-        if (!server) {
-            return Response.json(
-                { error: 'Not connected to Plex' },
-                { status: 401 }
-            );
-        }
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
+        const server = session.server;
+        const accountId = session.accountId;
 
         const current = await getPlaylistItems(server, playlistKey);
         const desiredIds = order.map(String);
@@ -79,7 +66,7 @@ export async function PUT(req, { params }) {
         );
         for (const item of toRemove) {
             await removePlaylistItem(server, playlistKey, item.playlistItemID);
-            deleteBaseline(playlistKey, item.ratingKey);
+            deleteBaseline(accountId, scopedKey(server.machineId, playlistKey), item.ratingKey);
         }
 
         for (let i = 0; i < desiredIds.length; i++) {

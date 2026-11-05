@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
-import { DATA_DIR } from './stateStore';
+import { DATA_DIR } from './paths.js';
 
 const CLIENT_ID_FILE = path.join(DATA_DIR, 'client_id');
 

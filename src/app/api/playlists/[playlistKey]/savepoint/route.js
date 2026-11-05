@@ -1,18 +1,16 @@
-import { cookies } from 'next/headers';
+import { requireSession } from '@/lib/session';
 import { getPlaylistItems } from '@/lib/plexClient';
-import { saveSavepoint, getSavepoint, clearSavepoint } from '@/lib/db';
-
-async function getServer() {
-    const cookieStore = await cookies();
-    const raw = cookieStore.get('plex_server')?.value;
-    if (!raw) return null;
-    return JSON.parse(raw);
-}
+import { saveSavepoint, getSavepoint, clearSavepoint, scopedKey } from '@/lib/db';
 
 export async function GET(req, { params }) {
     try {
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
         const { playlistKey } = await params;
-        const rows = getSavepoint(playlistKey);
+        const rows = getSavepoint(
+            session.accountId,
+            scopedKey(session.server.machineId, playlistKey)
+        );
         if (rows.length === 0) {
             return Response.json({ savepoint: null });
         }
@@ -38,10 +36,10 @@ export async function GET(req, { params }) {
 export async function POST(req, { params }) {
     try {
         const { playlistKey } = await params;
-        const server = await getServer();
-        if (!server) {
-            return Response.json({ error: 'Not connected to Plex' }, { status: 401 });
-        }
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
+        const server = session.server;
+        const accountId = session.accountId;
 
         const plexItems = await getPlaylistItems(server, playlistKey);
         const items = plexItems.map((item) => ({
@@ -52,7 +50,7 @@ export async function POST(req, { params }) {
             title: item.title,
         }));
 
-        saveSavepoint(playlistKey, items);
+        saveSavepoint(accountId, scopedKey(server.machineId, playlistKey), items);
 
         return Response.json({ ok: true, count: items.length });
     } catch (err) {
@@ -63,8 +61,13 @@ export async function POST(req, { params }) {
 
 export async function DELETE(req, { params }) {
     try {
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
         const { playlistKey } = await params;
-        clearSavepoint(playlistKey);
+        clearSavepoint(
+            session.accountId,
+            scopedKey(session.server.machineId, playlistKey)
+        );
         return Response.json({ ok: true });
     } catch (err) {
         console.error('savepoint delete error', err);

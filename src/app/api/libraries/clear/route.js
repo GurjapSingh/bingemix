@@ -1,7 +1,8 @@
-import { cookies } from 'next/headers';
+import { requireSession, setSessionLibrary } from '@/lib/session';
 
 export async function POST() {
-    const cookieStore = await cookies();
-    cookieStore.delete('plex_library');
+    const { session, response } = await requireSession();
+    if (response) return response;
+    setSessionLibrary(session, null);
     return Response.json({ ok: true });
 }

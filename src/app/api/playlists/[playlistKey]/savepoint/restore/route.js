@@ -1,23 +1,17 @@
-import { cookies } from 'next/headers';
+import { requireSession } from '@/lib/session';
 import { getPlaylistItems, removePlaylistItem, addItemsToPlaylist } from '@/lib/plexClient';
-import { getSavepoint, deleteBaselinesForPlaylist } from '@/lib/db';
-
-async function getServer() {
-    const cookieStore = await cookies();
-    const raw = cookieStore.get('plex_server')?.value;
-    if (!raw) return null;
-    return JSON.parse(raw);
-}
+import { getSavepoint, deleteBaselinesForPlaylist, scopedKey } from '@/lib/db';
 
 export async function POST(req, { params }) {
     try {
         const { playlistKey } = await params;
-        const server = await getServer();
-        if (!server) {
-            return Response.json({ error: 'Not connected to Plex' }, { status: 401 });
-        }
+        const { session, response } = await requireSession({ server: true });
+        if (response) return response;
+        const server = session.server;
+        const accountId = session.accountId;
 
-        const savepoint = getSavepoint(playlistKey);
+        const dbKey = scopedKey(server.machineId, playlistKey);
+        const savepoint = getSavepoint(accountId, dbKey);
         if (savepoint.length === 0) {
             return Response.json({ error: 'No save point exists for this playlist' }, { status: 404 });
         }
@@ -29,7 +23,7 @@ export async function POST(req, { params }) {
         }
 
         // Clear baselines so reconcile re-seeds them on the next run
-        deleteBaselinesForPlaylist(playlistKey);
+        deleteBaselinesForPlaylist(accountId, dbKey);
 
         // Re-add savepoint items in saved order
         const ratingKeys = savepoint.map((r) => r.rating_key);

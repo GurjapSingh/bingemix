@@ -1,19 +1,19 @@
 import Header from './Header';
-import { cookies } from 'next/headers';
 import ClientArea from './ClientArea';
+import { getSession } from '@/lib/session';
 
 export default async function DashboardPage() {
-    const cookieStore = await cookies();
-    const userToken = cookieStore.get('plex_user_token')?.value ?? null;
+    const session = await getSession();
+    const connected = !!session?.accountId;
 
     return (
-        <main className="mx-auto max-w-4xl p-6">
-            <Header />
+        <main className="mx-auto max-w-4xl px-5 py-8">
+            <Header profileTitle={session?.profileTitle ?? null} />
 
-            {!userToken && (
-                <div className="rounded bg-yellow-100 p-3 text-yellow-800">
+            {!connected && (
+                <div className="alert alert-warn mb-5">
                     Not connected to Plex.{' '}
-                    <a href="/setup" className="underline">
+                    <a href="/setup" className="font-semibold underline">
                         Sign in
                     </a>
                 </div>
