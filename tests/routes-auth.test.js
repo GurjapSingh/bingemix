@@ -80,7 +80,12 @@ describe('linking a plain Plex account', () => {
     it('/api/auth/me reports who is signed in', async () => {
         await link('tok-alice');
         const res = await get('@/app/api/auth/me/route', '/api/auth/me');
-        expect(await res.json()).toEqual({ accountId: '1', title: 'alice', profileSelected: true });
+        expect(await res.json()).toEqual({
+            accountId: '1',
+            title: 'alice',
+            profileSelected: true,
+            instance: { host: 'test-host', id: expect.stringMatching(/^[a-z0-9]{1,8}$/) },
+        });
     });
 
     it('/api/auth/me is 401 when signed out', async () => {

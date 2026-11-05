@@ -9,6 +9,7 @@ export default function Header({ profileTitle }) {
     const [profiles, setProfiles] = useState([]);
     const [activeId, setActiveId] = useState(null);
     const [switching, setSwitching] = useState(false);
+    const [instance, setInstance] = useState(null);
 
     useEffect(() => {
         if (!profileTitle) return;
@@ -19,6 +20,14 @@ export default function Header({ profileTitle }) {
                 setProfiles(d.profiles);
                 setActiveId(d.activeAccountId);
             })
+            .catch(() => {});
+    }, [profileTitle]);
+
+    useEffect(() => {
+        if (!profileTitle) return;
+        fetch('/api/auth/me', { cache: 'no-store' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => d?.instance && setInstance(d.instance))
             .catch(() => {});
     }, [profileTitle]);
 
@@ -37,6 +46,14 @@ export default function Header({ profileTitle }) {
                     <h1 className="text-lg font-semibold tracking-tight">
                         Plex Show Mixer
                     </h1>
+                    {instance && (
+                        <span
+                            className="hidden rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--muted)] sm:inline"
+                            title="The name and id this copy of Plex Show Mixer writes into playlist descriptions"
+                        >
+                            {instance.host} · id:{instance.id}
+                        </span>
+                    )}
                 </div>
                 <div className="flex items-center gap-1">
                     <ThemeToggle variant="inline" />

@@ -179,14 +179,14 @@ export default function PlaylistsPanel({ refreshKey, onEditPlaylist }) {
                                     {p.externalAutoUpdate.stale ? (
                                         <>
                                             Was auto-updated by another Plex Show Mixer (
-                                            {p.externalAutoUpdate.host}), last
+                                            {p.externalAutoUpdate.host}, id:{p.externalAutoUpdate.instanceId}), last
                                             checked {timeAgo(p.externalAutoUpdate.lastChecked)}. It may
                                             have stopped.
                                         </>
                                     ) : (
                                         <>
                                             Already being auto-updated by another Plex Show
-                                            Mixer ({p.externalAutoUpdate.host}), last
+                                            Mixer ({p.externalAutoUpdate.host}, id:{p.externalAutoUpdate.instanceId}), last
                                             checked {timeAgo(p.externalAutoUpdate.lastChecked)}.
                                             {!p.autoUpdateEnabled
                                                 ? ' Turning it on here would run it twice.'

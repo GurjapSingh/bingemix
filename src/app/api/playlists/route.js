@@ -34,6 +34,7 @@ export async function GET() {
                     marker && marker.instanceId !== me.id
                         ? {
                               host: marker.host,
+                              instanceId: marker.instanceId,
                               lastChecked: marker.lastChecked,
                               stale: isStale(marker),
                           }
