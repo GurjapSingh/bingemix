@@ -238,6 +238,10 @@ body {
 }
 .alert-warn {
     background: var(--accent-soft);
+    /* Dark amber: the bright accent is unreadable on the pale yellow background. */
+    color: #92400e;
+}
+:root[data-theme='dark'] .alert-warn {
     color: var(--accent-hover);
 }
 
@@ -317,7 +321,8 @@ body {
     transition: background 0.25s ease;
     flex: none;
 }
-:root[data-theme='dark'] .switch {
+/* :not(on) keeps this from out-ranking the green .switch[data-on='true'] rule */
+:root[data-theme='dark'] .switch:not([data-on='true']) {
     background: #39393d;
 }
 .switch > span {
