@@ -26,6 +26,7 @@
 
 # runtime state (contains live Plex tokens)
 /data
+/secrets
 
 # debug
 npm-debug.log*

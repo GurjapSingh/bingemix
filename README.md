@@ -69,21 +69,47 @@ Light and dark themes are built in.
 ## Run with Docker
 
 ```bash
-docker run -d --name plex-show-mixer -p 6767:6767 \
+docker run -d --name plex-show-mixer \
+  -p 6767:6767 \
   -v ./data:/app/data \
+  -v ./secrets:/app/secrets \
+  --restart unless-stopped \
   gurjaps/plex-show-mixer:latest
 ```
 
-Then open <http://localhost:6767>.
+Then open <http://localhost:6767>. The `data/` and `secrets/` folders are
+created next to where you ran the command.
 
-Or with Docker Compose, using the included `docker-compose.yml`:
+- `data/` holds the app's state.
+- `secrets/` holds the key that encrypts stored Plex tokens (see
+  [Token encryption](#token-encryption)). It is kept apart from `data/` on
+  purpose: back both up, but store them separately.
+
+### Docker Compose
+
+Save this as `docker-compose.yml` anywhere; it just pulls the published image:
+
+```yaml
+services:
+  plex-show-mixer:
+    image: gurjaps/plex-show-mixer:latest
+    container_name: plex-show-mixer
+    ports:
+      - "6767:6767"
+    volumes:
+      - ./data:/app/data
+      - ./secrets:/app/secrets
+    restart: unless-stopped
+```
 
 ```bash
 docker compose up -d
 ```
 
-Keep the `data/` folder: it holds the app's state, and **back it up**
-(see "Token encryption" below).
+> The `docker-compose.yml` in this repository is different: it **builds the
+> image from the source** in this checkout (and reads `PORT` and
+> `TOKEN_ENCRYPTION_KEY` from a `.env` file). Use it if you cloned the repo to
+> hack on it; otherwise use the version above.
 
 ## Configuration
 
@@ -92,26 +118,34 @@ All settings are optional environment variables.
 | Variable | Purpose |
 | --- | --- |
 | `PORT` | Port to listen on (default `6767`). |
-| `TOKEN_ENCRYPTION_KEY` | 32-byte base64 key used to encrypt Plex tokens on disk. See below. |
-| `TOKEN_ENCRYPTION_KEY_FILE` | Path to a file (e.g. a Docker secret) containing the key instead. |
+| `TOKEN_ENCRYPTION_KEY` | Optional. 32-byte base64 key used to encrypt Plex tokens. See below. |
+| `TOKEN_ENCRYPTION_KEY_FILE` | Optional. Path to a file (e.g. a Docker secret) containing the key instead. |
 | `PLEX_CLIENT_ID` | Fixed identifier Plex uses for this install. Generated and saved to `data/client_id` if unset. |
 | `INSTANCE_NAME` | Name shown when another copy of the app sees this one auto-updating a playlist. Defaults to the machine name. |
-| `DATA_DIR` | Parent folder for the `data/` directory. |
+| `DATA_DIR` | Parent folder for the `data/` and `secrets/` directories. |
 | `AUTO_UPDATE_POLL_INTERVAL_MS` | How often auto-update checks playlists (default 5 minutes). |
 
 ### Token encryption
 
 Auto-update needs to keep your Plex access token so it can work while you are
-away. Tokens are stored encrypted (AES-256-GCM). The key comes from, in order:
+away. Tokens are stored encrypted (AES-256-GCM), and **no setup is needed**: on
+first run the app generates a key and saves it at `secrets/encryption_key`,
+separate from the encrypted tokens in `data/`. A copy of the `data/` folder (a
+backup, a shared drive) is therefore useless without the key.
 
-1. `TOKEN_ENCRYPTION_KEY`
-2. `TOKEN_ENCRYPTION_KEY_FILE`
-3. a key generated on first run and saved at `data/.encryption_key`
+Optionally, bring your own key instead. It is looked up in this order:
 
-Option 3 works with no setup, but the key then sits next to the data it
-protects. For better security set option 1 or 2 and keep the key outside the
-data folder. Generate a key with `openssl rand -base64 32`. If the key is lost
-or changed, stored tokens cannot be read and people just sign in again.
+1. `TOKEN_ENCRYPTION_KEY` (optional)
+2. `TOKEN_ENCRYPTION_KEY_FILE` (optional, e.g. a Docker secret)
+3. `secrets/encryption_key` (generated on first run)
+4. `data/.encryption_key` (where earlier versions kept it; still used if present)
+
+Generate a key with `openssl rand -base64 32`. If the key is lost or changed,
+stored tokens cannot be read and people just sign in again.
+
+> Running without a `secrets` volume still works, but the generated key is then
+> lost whenever the container is recreated, and everyone has to sign in again.
+> Mount `./secrets:/app/secrets` as shown above.
 
 ## Good to know
 

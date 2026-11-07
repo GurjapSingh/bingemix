@@ -15,6 +15,7 @@ services:
       INSTANCE_NAME: "${INSTANCE_NAME:-}"
     volumes:
       - ./data:/app/data
+      - ./secrets:/app/secrets
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${PORT:-6767}/ || exit 1"]

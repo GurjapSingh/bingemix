@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plex Show Mixer: mixed-show Plex playlists that stay fresh</title>
+<meta name="description" content="Build Plex playlists that mix episodes from several TV shows, and keep them fresh: watched episodes are removed automatically. Self-hosted, runs in Docker.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta property="og:title" content="Plex Show Mixer">
+<meta property="og:description" content="Mix episodes from several TV shows into one Plex playlist. Watched episodes drop out automatically.">
+<meta property="og:image" content="screenshots/dashboard.png">
+<style>
+:root {
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #17171a;
+    --muted: #62626b;
+    --border: #e2e2e7;
+    --accent: #e5a00d;
+    --accent-fg: #1c1400;
+    --code-bg: #14141a;
+    --code-fg: #ececf1;
+    --code-muted: #8b8b98;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0b0b0d;
+        --card: #141417;
+        --text: #f2f2f5;
+        --muted: #a1a1ab;
+        --border: #26262c;
+        --code-bg: #0a0a0c;
+        --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.4);
+    }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+.narrow { max-width: 760px; }
+
+/* nav */
+nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
+.brand { display: flex; align-items: center; gap: 12px; font-weight: 700; text-decoration: none; }
+.brand img { width: 34px; height: 34px; }
+.nav-links { display: flex; gap: 22px; font-size: 15px; }
+.nav-links a { text-decoration: none; color: var(--muted); }
+.nav-links a:hover { color: var(--text); }
+
+/* hero */
+.hero { text-align: center; padding: 56px 0 40px; }
+h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); line-height: 1.1; letter-spacing: -.03em; margin: 0 0 18px; }
+h1 em { font-style: normal; color: var(--accent); }
+.lead { max-width: 640px; margin: 0 auto 30px; font-size: 1.2rem; color: var(--muted); }
+.btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.btn {
+    display: inline-block; padding: 12px 24px; border-radius: 12px; font-weight: 600;
+    text-decoration: none; border: 1px solid var(--border); background: var(--card);
+}
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn:hover { filter: brightness(.96); }
+.shot {
+    margin: 48px auto 0; max-width: 820px; border-radius: 16px; overflow: hidden;
+    border: 1px solid var(--border); box-shadow: var(--shadow); background: var(--card);
+    max-height: 560px; position: relative;
+}
+.shot img { display: block; width: 100%; height: auto; }
+.shot::after {
+    content: ""; position: absolute; inset: auto 0 0 0; height: 90px;
+    background: linear-gradient(transparent, var(--bg));
+}
+
+/* sections */
+section { padding: 64px 0; }
+h2 { font-size: 2rem; letter-spacing: -.02em; margin: 0 0 10px; }
+h3 { font-size: 1.15rem; margin: 0 0 6px; }
+.sub { color: var(--muted); margin: 0 0 32px; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 22px; box-shadow: var(--shadow);
+}
+.card p { margin: 0; color: var(--muted); font-size: .97rem; }
+.icon { font-size: 1.5rem; margin-bottom: 8px; }
+
+/* gallery */
+.gallery { display: grid; gap: 28px 20px; grid-template-columns: repeat(2, 1fr); align-items: start; }
+@media (max-width: 700px) { .gallery { grid-template-columns: 1fr; } }
+figure { margin: 0; }
+figure a { display: block; border-radius: 14px; overflow: hidden; border: 1px solid var(--border); box-shadow: var(--shadow); background: var(--card); }
+figure img { display: block; width: 100%; height: auto; }
+figcaption { margin-top: 10px; text-align: center; color: var(--muted); font-size: .95rem; }
+figcaption b { color: var(--text); }
+
+/* get started */
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+.steps > li { position: relative; padding: 0 0 36px 56px; }
+.steps > li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 0; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--accent); color: var(--accent-fg); font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+}
+.steps > li::after {
+    content: ""; position: absolute; left: 18px; top: 44px; bottom: 6px; width: 2px; background: var(--border);
+}
+.steps > li:last-child { padding-bottom: 0; }
+.steps > li:last-child::after { display: none; }
+.steps p { color: var(--muted); margin: 4px 0 12px; }
+
+.tag {
+    display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    background: rgba(229,160,13,.15); color: #b27a00; padding: 2px 10px; border-radius: 999px; margin-left: 8px; vertical-align: middle;
+}
+@media (prefers-color-scheme: dark) { .tag { color: var(--accent); } }
+
+.code { position: relative; margin: 10px 0 0; }
+.code .label {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #1d1d24; color: var(--code-muted); font-size: .8rem; padding: 7px 14px;
+    border-radius: 12px 12px 0 0; border: 1px solid #2b2b34; border-bottom: 0;
+}
+.code pre {
+    margin: 0; padding: 16px; overflow-x: auto; background: var(--code-bg); color: var(--code-fg);
+    border-radius: 0 0 12px 12px; border: 1px solid #2b2b34;
+    font: 14px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.copy {
+    cursor: pointer; border: 1px solid #3a3a45; background: transparent; color: var(--code-fg);
+    font: inherit; font-size: .78rem; padding: 3px 10px; border-radius: 8px;
+}
+.copy:hover { background: #2a2a33; }
+.c { color: #7d7d8b; }
+
+.opt { margin: 0 0 40px; }
+.opt h3 { font-size: 1.3rem; }
+
+.note {
+    border-left: 3px solid var(--accent); background: var(--card); border-radius: 0 12px 12px 0;
+    padding: 14px 18px; margin: 18px 0 0; color: var(--muted); font-size: .96rem; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.note b { color: var(--text); }
+code.i { font: .9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--border); padding: 1px 6px; border-radius: 6px; }
+
+table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; font-size: .95rem; }
+th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: rgba(127,127,127,.06); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { white-space: nowrap; }
+.table-wrap { overflow-x: auto; }
+
+footer { border-top: 1px solid var(--border); padding: 32px 0 48px; color: var(--muted); font-size: .92rem; text-align: center; }
+footer a { color: var(--text); }
+@media (max-width: 560px) {
+    .nav-links { gap: 14px; font-size: 14px; }
+    .brand { white-space: nowrap; font-size: 15px; }
+    .nav-links a:first-child { display: none; }
+    td:first-child { white-space: normal; word-break: break-all; }
+    th, td { padding: 10px 12px; }
+    .steps > li { padding-left: 50px; }
+    section { padding: 48px 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+    <nav>
+        <a class="brand" href="#top"><img src="icon.svg" alt="">Plex Show Mixer</a>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#get-started">Get started</a>
+            <a href="https://github.com/GurjapSingh/plex-show-mixer">GitHub</a>
+        </div>
+    </nav>
+
+    <header class="hero" id="top">
+        <h1>Mix your shows.<br><em>Keep the playlist fresh.</em></h1>
+        <p class="lead">
+            Build Plex playlists that mix episodes from several TV shows. Watched episodes
+            are removed automatically, so a playlist always shows what is left to watch.
+        </p>
+        <div class="btns">
+            <a class="btn primary" href="#get-started">Get started</a>
+            <a class="btn" href="https://github.com/GurjapSingh/plex-show-mixer">View on GitHub</a>
+        </div>
+        <div class="shot">
+            <picture>
+                <source media="(prefers-color-scheme: dark)" srcset="screenshots/dashboard-dark.png">
+                <img src="screenshots/dashboard.png" alt="Plex Show Mixer showing selected shows and a mixed playlist preview">
+            </picture>
+        </div>
+    </header>
+</div>
+
+<section id="features">
+    <div class="wrap">
+        <h2>Everything you need, nothing you don't</h2>
+        <p class="sub">One small self-hosted app that sits next to your Plex server.</p>
+        <div class="grid">
+            <div class="card"><div class="icon">🔎</div><h3>Search and pick</h3><p>Search your Plex TV library, then choose shows, seasons and individual episodes.</p></div>
+            <div class="card"><div class="icon">🔀</div><h3>Take turns or shuffle</h3><p>Alternate between shows, or shuffle everything. Drag rows to fine-tune the order.</p></div>
+            <div class="card"><div class="icon">👀</div><h3>Preview first</h3><p>See exactly what will be created, with runtime, air dates, ratings and watched status.</p></div>
+            <div class="card"><div class="icon">♻️</div><h3>Auto-update</h3><p>Episodes are removed from a playlist once you have watched them.</p></div>
+            <div class="card"><div class="icon">💾</div><h3>Save points</h3><p>Reset a playlist to an earlier state whenever you like.</p></div>
+            <div class="card"><div class="icon">👨‍👩‍👧</div><h3>Multi-user</h3><p>Several people and Plex Home profiles can share one install, each with their own playlists.</p></div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="wrap">
+        <h2>See it in action</h2>
+        <p class="sub">Light and dark themes are built in. Screenshots use sample data.</p>
+        <div class="gallery">
+            <figure><a href="screenshots/search.png"><img src="screenshots/search.png" alt="Searching the library" loading="lazy"></a><figcaption><b>Search your library</b>. Press Enter to add a show.</figcaption></figure>
+            <figure><a href="screenshots/shows.png"><img src="screenshots/shows.png" alt="Choosing seasons and episodes" loading="lazy"></a><figcaption><b>Choose seasons and episodes</b>. Watched ones are flagged.</figcaption></figure>
+            <figure><a href="screenshots/preview.png"><img src="screenshots/preview.png" alt="Playlist preview" loading="lazy"></a><figcaption><b>Preview the mix</b>. Take turns or shuffle, drag to reorder.</figcaption></figure>
+            <figure><a href="screenshots/playlists.png"><img src="screenshots/playlists.png" alt="Existing playlists with auto-update" loading="lazy"></a><figcaption><b>Manage playlists</b>. Auto-update, save points, edit, delete.</figcaption></figure>
+        </div>
+    </div>
+</section>
+
+<section id="get-started">
+    <div class="wrap narrow">
+        <h2>Get started</h2>
+        <p class="sub">You need <a href="https://docs.docker.com/get-docker/">Docker</a> and a Plex account. Pick whichever way you prefer.</p>
+
+        <div class="opt">
+            <h3>Option 1: a single command <span class="tag">Quickest</span></h3>
+            <p class="sub" style="margin-bottom:0">No files to write. Run it in the folder where you want the app's files kept; the <code class="i">data</code> and <code class="i">secrets</code> folders are created there for you.</p>
+            <div class="code">
+                <div class="label"><span>terminal</span><button class="copy" type="button">Copy</button></div>
+<pre>docker run -d --name plex-show-mixer \
+  -p 6767:6767 \
+  -v ./data:/app/data \
+  -v ./secrets:/app/secrets \
+  --restart unless-stopped \
+  gurjaps/plex-show-mixer:latest</pre>
+            </div>
+        </div>
+
+        <div class="opt">
+            <h3>Option 2: Docker Compose</h3>
+            <p class="sub" style="margin-bottom:0">Better if you want the setup written down and easy to change. Save this as <code class="i">docker-compose.yml</code>, then run <code class="i">docker compose up -d</code>.</p>
+            <div class="code">
+                <div class="label"><span>docker-compose.yml</span><button class="copy" type="button">Copy</button></div>
+<pre>services:
+  plex-show-mixer:
+    image: gurjaps/plex-show-mixer:latest
+    container_name: plex-show-mixer
+    ports:
+      - "6767:6767"
+    volumes:
+      - ./data:/app/data
+      - ./secrets:/app/secrets
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:6767/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3</pre>
+            </div>
+            <div class="code">
+                <div class="label"><span>terminal</span><button class="copy" type="button">Copy</button></div>
+<pre>docker compose up -d</pre>
+            </div>
+        </div>
+
+        <h3 style="font-size:1.3rem;margin-bottom:18px">Then</h3>
+        <ol class="steps">
+            <li>
+                <h3>Open the app</h3>
+                <p>Go to <a href="http://localhost:6767"><code class="i">http://localhost:6767</code></a>, or use your server's address if it runs on another machine.</p>
+            </li>
+            <li>
+                <h3>Sign in with Plex</h3>
+                <p>The app shows a short code. Enter it at <a href="https://plex.tv/link"><code class="i">plex.tv/link</code></a>, then come back and confirm. Your Plex password is never seen or stored.</p>
+            </li>
+            <li>
+                <h3>Pick a server and library</h3>
+                <p>Choose the Plex server and TV library to build playlists on. Playlists are built from one server at a time.</p>
+            </li>
+            <li>
+                <h3>Add shows and create your playlist</h3>
+                <p>Search, press Enter to add shows, choose seasons and episodes, pick <b>Take turns</b> or <b>Shuffle</b>, name it, and hit <b>Create Playlist</b>. Turn on <b>Auto-update</b> and you're done.</p>
+            </li>
+        </ol>
+
+        <div class="note">
+            <b>Back up <code class="i">data</code> and <code class="i">secrets</code>, and store them separately.</b> <code class="i">data</code> holds the app's state; <code class="i">secrets</code> holds the key that encrypts your stored Plex tokens.
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="wrap narrow">
+        <h2 id="key">About the secret key</h2>
+        <p class="sub">Auto-update keeps your Plex token so it can work while you are away. Tokens are stored encrypted (AES-256-GCM) in <code class="i">data/</code>. On first run the app creates the key that unlocks them in <code class="i">secrets/</code>, a different folder, so a copy of <code class="i">data/</code> alone (a backup, a shared drive) is useless. <b>There is nothing for you to set up.</b></p>
+        <div class="note"><b>Keep the <code class="i">secrets</code> volume.</b> If you start the container without <code class="i">-v ./secrets:/app/secrets</code>, the key is lost whenever the container is recreated and everyone has to sign in with Plex again. Nothing else breaks.</div>
+
+        <h3 style="margin-top:36px">Bring your own key <span class="tag">Optional</span></h3>
+        <p class="sub">Prefer to manage the key yourself, for example as a Docker secret? Generate one and point the app at it. This replaces the automatic key.</p>
+        <div class="code">
+            <div class="label"><span>terminal</span><button class="copy" type="button">Copy</button></div>
+<pre>mkdir -p keys
+openssl rand -base64 32 &gt; keys/token_key
+
+docker run -d --name plex-show-mixer \
+  -p 6767:6767 \
+  -v ./data:/app/data \
+  -v ./keys/token_key:/run/secrets/token_key:ro \
+  -e TOKEN_ENCRYPTION_KEY_FILE=/run/secrets/token_key \
+  --restart unless-stopped \
+  gurjaps/plex-show-mixer:latest</pre>
+        </div>
+        <p class="sub" style="margin-top:14px">Create the key file <i>before</i> starting: if it is missing, Docker makes an empty folder in its place and the app won't start. You can also pass the key itself as <code class="i">TOKEN_ENCRYPTION_KEY</code>.</p>
+    </div>
+</section>
+
+<section>
+    <div class="wrap narrow">
+        <h2>Settings</h2>
+        <p class="sub">All optional environment variables.</p>
+        <div class="table-wrap">
+        <table>
+            <thead><tr><th>Variable</th><th>Purpose</th></tr></thead>
+            <tbody>
+                <tr><td><code class="i">PORT</code></td><td>Port to listen on (default <code class="i">6767</code>).</td></tr>
+                <tr><td><code class="i">TOKEN_ENCRYPTION_KEY</code></td><td><b>Optional.</b> Your own 32-byte base64 key, instead of the generated one.</td></tr>
+                <tr><td><code class="i">TOKEN_ENCRYPTION_KEY_FILE</code></td><td><b>Optional.</b> Path to a file (e.g. a Docker secret) containing your own key.</td></tr>
+                <tr><td><code class="i">PLEX_CLIENT_ID</code></td><td>Fixed identifier Plex uses for this install. Generated and saved if unset.</td></tr>
+                <tr><td><code class="i">INSTANCE_NAME</code></td><td>Name shown when another copy of the app sees this one auto-updating a playlist.</td></tr>
+                <tr><td><code class="i">AUTO_UPDATE_POLL_INTERVAL_MS</code></td><td>How often auto-update checks playlists (default 5 minutes).</td></tr>
+            </tbody>
+        </table>
+        </div>
+        <p class="sub" style="margin-top:18px">Want a different port? Change only the left side of the mapping: <code class="i">-p 8080:6767</code> exposes the app on port <code class="i">8080</code> of your machine.</p>
+    </div>
+</section>
+
+<footer>
+    <div class="wrap">
+        <p>Plex Show Mixer is an independent project and is not affiliated with Plex Inc.</p>
+        <p>
+            <a href="https://github.com/GurjapSingh/plex-show-mixer">GitHub</a> ·
+            <a href="https://hub.docker.com/r/gurjaps/plex-show-mixer">Docker Hub</a> ·
+            <a href="https://github.com/GurjapSingh/plex-show-mixer/issues">Report an issue</a>
+        </p>
+    </div>
+</footer>
+
+<script>
+document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+        var text = btn.closest('.code').querySelector('pre').innerText;
+        try {
+            await navigator.clipboard.writeText(text);
+            btn.textContent = 'Copied!';
+        } catch (e) {
+            var r = document.createRange();
+            r.selectNodeContents(btn.closest('.code').querySelector('pre'));
+            var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+            btn.textContent = 'Press Ctrl+C';
+        }
+        setTimeout(function () { btn.textContent = 'Copy'; }, 1800);
+    });
+});
+</script>
+</body>
+</html>

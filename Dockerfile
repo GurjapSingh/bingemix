@@ -26,8 +26,8 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Persistent state directory (mounted via docker-compose volume)
-RUN mkdir -p /app/data
+# Persistent state (data) and the generated encryption key (secrets), mounted as volumes
+RUN mkdir -p /app/data /app/secrets
 
 EXPOSE 6767
 

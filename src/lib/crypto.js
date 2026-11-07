@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { DATA_DIR } from './paths.js';
+import { DATA_DIR, SECRETS_DIR } from './paths.js';
 
 const VERSION = 'v1';
 let cachedKey = null;
@@ -29,9 +29,10 @@ function readKeyFile(file) {
  * Key lookup order:
  *   1. TOKEN_ENCRYPTION_KEY          (32 bytes, base64)
  *   2. TOKEN_ENCRYPTION_KEY_FILE     (path to a file holding the key, e.g. a Docker secret)
- *   3. data/.encryption_key          (generated on first run if nothing else is set)
- * Option 3 keeps the key next to the data it protects, so for anything beyond
- * a home setup prefer 1 or 2 and keep the key out of the data volume.
+ *   3. secrets/encryption_key        (generated on first run if nothing else is set)
+ *   4. data/.encryption_key          (where earlier versions kept it; still used if present)
+ * The generated key lives in secrets/, not data/, so a copy of the data folder
+ * alone cannot decrypt the stored tokens. Back up the two separately.
  */
 function getKey() {
     if (cachedKey) return cachedKey;
@@ -52,10 +53,13 @@ function getKey() {
         return cachedKey;
     }
 
-    const keyFile = path.join(DATA_DIR, '.encryption_key');
-    // .dev_key is the name earlier dev builds used.
+    const keyFile = path.join(SECRETS_DIR, 'encryption_key');
+    // Earlier versions kept the key in the data folder (.dev_key before that).
+    // Keep using it so existing installs can still read their stored tokens.
     const existing =
-        readKeyFile(keyFile) || readKeyFile(path.join(DATA_DIR, '.dev_key'));
+        readKeyFile(keyFile) ||
+        readKeyFile(path.join(DATA_DIR, '.encryption_key')) ||
+        readKeyFile(path.join(DATA_DIR, '.dev_key'));
     if (existing) {
         cachedKey = existing;
         return cachedKey;
@@ -63,10 +67,10 @@ function getKey() {
 
     console.warn(
         `[crypto] No TOKEN_ENCRYPTION_KEY set; generated one at ${keyFile}. ` +
-            'Back up this file (losing it means users must re-link), and for ' +
-            'better security set TOKEN_ENCRYPTION_KEY or TOKEN_ENCRYPTION_KEY_FILE instead.'
+            'Keep that folder on a persistent volume and back it up separately from data/ ' +
+            '(losing it means users must re-link).'
     );
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.mkdirSync(SECRETS_DIR, { recursive: true });
     const key = crypto.randomBytes(32);
     fs.writeFileSync(keyFile, key.toString('base64'), { mode: 0o600 });
     cachedKey = key;

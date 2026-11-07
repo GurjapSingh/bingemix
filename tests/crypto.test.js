@@ -87,12 +87,28 @@ describe('where the key comes from', () => {
 
         const first = await freshCrypto(env);
         const payload = first.encrypt({ n: 1 });
-        const keyFile = path.join(dir, 'data', '.encryption_key');
+        const keyFile = path.join(dir, 'secrets', 'encryption_key');
         expect(fs.existsSync(keyFile)).toBe(true);
+        // ...and not next to the data it protects.
+        expect(fs.existsSync(path.join(dir, 'data', '.encryption_key'))).toBe(false);
 
         // A new process (fresh module state) must read the same key back.
         const second = await freshCrypto(env);
         expect(second.decrypt(payload)).toEqual({ n: 1 });
+    });
+
+    it('keeps using a key that an earlier version saved in the data dir', async () => {
+        const env = { TOKEN_ENCRYPTION_KEY: undefined, TOKEN_ENCRYPTION_KEY_FILE: undefined, DATA_DIR: dir };
+        fs.mkdirSync(path.join(dir, 'data'), { recursive: true });
+        fs.writeFileSync(path.join(dir, 'data', '.encryption_key'), crypto.randomBytes(32).toString('base64'));
+
+        const first = await freshCrypto(env);
+        const payload = first.encrypt({ n: 1 });
+
+        const second = await freshCrypto(env);
+        expect(second.decrypt(payload)).toEqual({ n: 1 });
+        // It must not quietly create a second key that would orphan the tokens.
+        expect(fs.existsSync(path.join(dir, 'secrets', 'encryption_key'))).toBe(false);
     });
 
     it('prefers the env var over a key file in the data dir', async () => {
