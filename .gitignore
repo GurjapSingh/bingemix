@@ -44,3 +44,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local-only: IDE settings and the home-server deploy script
+.idea/
+/deploy.sh
