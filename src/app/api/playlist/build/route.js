@@ -10,7 +10,7 @@ export async function POST(req) {
     } catch {
         return Response.json({ error: 'Invalid request' }, { status: 400 });
     }
-    const { title = 'Show Mixer', episodeKeys = [] } = body;
+    const { title = 'Bingemix', episodeKeys = [] } = body;
 
     if (!Array.isArray(episodeKeys) || episodeKeys.length === 0) {
         return Response.json({ error: 'episodeKeys required' }, { status: 400 });

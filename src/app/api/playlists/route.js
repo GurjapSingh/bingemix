@@ -28,7 +28,7 @@ export async function GET() {
             .filter((p) => !p.title?.endsWith('_watched'))
             .map((p) => {
                 const entry = byKey.get(p.ratingKey);
-                // Is a different copy of Plex Show Mixer already updating this playlist?
+                // Is a different copy of Bingemix already updating this playlist?
                 const marker = parseMarker(p.summary);
                 const external =
                     marker && marker.instanceId !== me.id

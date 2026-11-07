@@ -1,5 +1,5 @@
 {
-    "name": "plex-show-mixer",
+    "name": "bingemix",
     "version": "1.2.3",
     "private": true,
     "scripts": {

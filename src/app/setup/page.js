@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProfilePicker from '../ProfilePicker';
+import Logo from '../Logo';
 
 function Step({ n, title, children }) {
     return (
@@ -105,9 +106,7 @@ export default function SetupPage() {
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--accent)] text-2xl text-[var(--accent-fg)] shadow-lg">
-                ▶
-            </div>
+            <Logo className="h-14 w-14 rounded-2xl shadow-lg" title="Bingemix" />
             {profiles ? (
                 <>
                     <h1 className="text-2xl font-bold tracking-tight">Who&apos;s watching?</h1>
@@ -123,7 +122,8 @@ export default function SetupPage() {
                 <>
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">
-                            Plex Show Mixer
+                            Bingemix{' '}
+                            <span className="text-lg font-medium muted">for Plex</span>
                         </h1>
                         <p className="mt-2 muted">
                             Connect your Plex account to get started.

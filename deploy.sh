@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Deploy plex-show-mixer to the home server and bring it up via docker compose.
+# Deploy Bingemix to the home server and bring it up via docker compose.
 #
 # Usage:
 #   ./deploy.sh

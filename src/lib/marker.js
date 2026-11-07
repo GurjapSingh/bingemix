@@ -6,17 +6,29 @@ import { getPlaylist, setPlaylistSummary } from './plexClient.js';
  * Auto-update marker.
  *
  * Plex can't store hidden metadata on a playlist (labels are accepted but not
- * saved), so when a Plex Show Mixer copy auto-updates a playlist it appends one
+ * saved), so when a Bingemix copy auto-updates a playlist it appends one
  * line to the playlist description:
  *
- *   Auto-updated by Plex Show Mixer (elitedesk) · last checked 2026-11-05T20:15:00Z · id:ab12cd34
+ *   Auto-updated by Bingemix (elitedesk) · last checked 2026-11-05T20:15:00Z · id:ab12cd34
  *
  * Other copies of the app pointed at the same Plex server read it to tell the
  * user the playlist is already being handled elsewhere.
+ *
+ * The app used to be called "Plex Show Mixer" (and "Show Mixer"). Playlists
+ * still carry markers with those names, so reading and stripping accept all of
+ * them; only Bingemix is ever written. Older releases don't recognise the new
+ * name, so upgrade every copy that points at the same server together.
  */
 
-const MARKER_RE =
-    /\n*Auto-updated by (?:Plex )?Show Mixer \(([^)]*)\) · last checked (\S+) · id:([a-z0-9]+)\s*$/;
+const NAME = '(?:Bingemix|(?:Plex )?Show Mixer)';
+const MARKER_RE = new RegExp(
+    `\\n*Auto-updated by ${NAME} \\(([^)]*)\\) · last checked (\\S+) · id:([a-z0-9]+)\\s*$`
+);
+// Every marker line anywhere, so a leftover from a mixed-version run can't pile up.
+const MARKER_ANY_RE = new RegExp(
+    `\\n*Auto-updated by ${NAME} \\([^)]*\\) · last checked \\S+ · id:[a-z0-9]+[ \\t]*`,
+    'g'
+);
 
 export const MARKER_REFRESH_MS = 60 * 60 * 1000; // rewrite at most hourly
 export const MARKER_STALE_MS = 3 * 60 * 60 * 1000; // no check for 3h => likely stopped
@@ -47,13 +59,13 @@ export function isStale(marker, now = Date.now()) {
 }
 
 function stripMarker(summary) {
-    return (summary || '').replace(MARKER_RE, '');
+    return (summary || '').replace(MARKER_ANY_RE, '');
 }
 
 function buildSummary(summary, instance) {
     const base = stripMarker(summary);
     if (!instance) return base;
-    const line = `Auto-updated by Plex Show Mixer (${instance.host}) · last checked ${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} · id:${instance.id}`;
+    const line = `Auto-updated by Bingemix (${instance.host}) · last checked ${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} · id:${instance.id}`;
     return base ? `${base}\n\n${line}` : line;
 }
 

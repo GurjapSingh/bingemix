@@ -11,14 +11,19 @@
     --surface-2: #f4f4f5;
     --border: #e4e4e7;
     --muted: #71717a;
-    --accent: #e5a00d;
-    --accent-hover: #f0ae1f;
-    --accent-fg: #1c1400;
-    --accent-soft: #fef3c7;
+    --accent: #7c3aed;
+    --accent-hover: #6d28d9;
+    --accent-fg: #ffffff;
+    --accent-soft: #ede9fe;
+    --accent-text: #6d28d9;
+    /* Warnings keep their own amber so they never read as "brand". */
+    --warn-soft: #fef3c7;
+    --warn-text: #92400e;
     --danger: #dc2626;
     --danger-soft: #fee2e2;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.04);
     color-scheme: light;
+    accent-color: var(--accent);
 }
 
 :root[data-theme='dark'] {
@@ -28,7 +33,11 @@
     --surface-2: #1c1c21;
     --border: #27272a;
     --muted: #a1a1aa;
-    --accent-soft: #3a2a07;
+    --accent-hover: #8b5cf6;
+    --accent-soft: #2e1065;
+    --accent-text: #c4b5fd;
+    --warn-soft: #3a2a07;
+    --warn-text: #fcd34d;
     --danger: #f87171;
     --danger-soft: #3b1418;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.3);
@@ -175,8 +184,8 @@ body {
     filter: brightness(0.97);
 }
 .btn-warn {
-    background: var(--accent-soft);
-    color: var(--accent-hover);
+    background: var(--warn-soft);
+    color: var(--warn-text);
 }
 
 .input {
@@ -217,7 +226,7 @@ body {
 .chip-accent {
     background: var(--accent-soft);
     border-color: transparent;
-    color: var(--accent-hover);
+    color: var(--accent-text);
 }
 
 .alert {
@@ -237,12 +246,8 @@ body {
     color: #5fd98a;
 }
 .alert-warn {
-    background: var(--accent-soft);
-    /* Dark amber: the bright accent is unreadable on the pale yellow background. */
-    color: #92400e;
-}
-:root[data-theme='dark'] .alert-warn {
-    color: var(--accent-hover);
+    background: var(--warn-soft);
+    color: var(--warn-text);
 }
 
 .tbl-wrap {

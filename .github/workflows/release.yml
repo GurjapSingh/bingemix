@@ -8,7 +8,7 @@ on:
       - "v*"
 
 env:
-  IMAGE: ${{ vars.DOCKERHUB_USERNAME }}/plex-show-mixer
+  IMAGE: ${{ vars.DOCKERHUB_USERNAME }}/bingemix
 
 jobs:
   test:

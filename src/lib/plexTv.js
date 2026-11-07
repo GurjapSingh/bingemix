@@ -6,7 +6,7 @@ async function plexTvFetch(url, token, options = {}) {
         ...options,
         headers: {
             Accept: 'application/json',
-            'X-Plex-Product': 'Plex Show Mixer',
+            'X-Plex-Product': 'Bingemix',
             'X-Plex-Version': '1.0',
             'X-Plex-Platform': 'Web',
             'X-Plex-Client-Identifier': clientId,

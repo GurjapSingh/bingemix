@@ -13,7 +13,7 @@ async function createPin(req) {
     const res = await fetch('https://plex.tv/api/v2/pins', {
         method: 'POST',
         headers: {
-            'X-Plex-Product': 'Plex Show Mixer',
+            'X-Plex-Product': 'Bingemix',
             'X-Plex-Version': '1.0',
             'X-Plex-Platform': 'Web',
             'X-Plex-Client-Identifier': clientId,

@@ -1,21 +1,21 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Logo from './Logo';
 
 export default function WelcomePage() {
     const router = useRouter();
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent)] text-3xl text-[var(--accent-fg)] shadow-lg">
-                ▶
-            </div>
+            <Logo className="mb-6 h-16 w-16 rounded-2xl shadow-lg" title="Bingemix" />
             <h1 className="mb-3 text-4xl font-bold tracking-tight">
-                Plex Show Mixer
+                Bingemix{' '}
+                <span className="text-xl font-medium muted">for Plex</span>
             </h1>
             <p className="mb-8 max-w-md text-lg muted">
-                Build playlists that mix episodes from your favourite shows, and
-                keep them fresh automatically.
+                Interleave or shuffle your favourite shows into one auto-updating
+                playlist.
             </p>
             <button
                 onClick={() => router.push('/setup')}

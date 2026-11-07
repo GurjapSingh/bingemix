@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProfilePicker from '../ProfilePicker';
 import ThemeToggle from '../ThemeToggle';
+import Logo from '../Logo';
 
 export default function Header({ profileTitle }) {
     const router = useRouter();
@@ -40,16 +41,15 @@ export default function Header({ profileTitle }) {
         <header className="mb-8">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-[var(--accent-fg)] font-bold">
-                        ▶
-                    </div>
+                    <Logo className="h-9 w-9 rounded-xl" />
                     <h1 className="text-lg font-semibold tracking-tight">
-                        Plex Show Mixer
+                        Bingemix{' '}
+                        <span className="text-xs font-medium muted">for Plex</span>
                     </h1>
                     {instance && (
                         <span
                             className="hidden rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--muted)] sm:inline"
-                            title="The name and id this copy of Plex Show Mixer writes into playlist descriptions"
+                            title="The name and id this copy of Bingemix writes into playlist descriptions"
                         >
                             {instance.host} · id:{instance.id}
                         </span>

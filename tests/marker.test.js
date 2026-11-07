@@ -3,6 +3,7 @@ import { PlexWorld, makeShow } from './helpers/plexWorld.js';
 import { parseMarker, isStale, writeMarker, refreshMarker, ourInstance } from '@/lib/marker.js';
 
 const HOUR = 60 * 60 * 1000;
+// Markers already on playlists from before the Bingemix rename.
 const line = (host, id, when) =>
     `Auto-updated by Plex Show Mixer (${host}) · last checked ${new Date(when).toISOString()} · id:${id}`;
 
@@ -13,6 +14,15 @@ describe('parsing the note', () => {
             host: 'elitedesk',
             lastChecked: '2026-01-02T03:04:05.000Z',
             instanceId: 'ab12cd34',
+        });
+    });
+
+    it('reads the current Bingemix wording', () => {
+        const m = parseMarker('Auto-updated by Bingemix (nas) · last checked 2026-01-02T03:04:05Z · id:cafe1234');
+        expect(m).toEqual({
+            host: 'nas',
+            lastChecked: '2026-01-02T03:04:05.000Z',
+            instanceId: 'cafe1234',
         });
     });
 
@@ -64,13 +74,31 @@ describe('writing the note into Plex', () => {
     it('works on a playlist with no description', async () => {
         playlist.summary = '';
         await writeMarker(plexServer, playlist.ratingKey, true);
-        expect(playlist.summary.startsWith('Auto-updated by Plex Show Mixer')).toBe(true);
+        expect(playlist.summary.startsWith('Auto-updated by Bingemix')).toBe(true);
     });
 
     it('replaces its own note instead of stacking them', async () => {
         await writeMarker(plexServer, playlist.ratingKey, true);
         await writeMarker(plexServer, playlist.ratingKey, true);
         expect(playlist.summary.match(/Auto-updated by/g)).toHaveLength(1);
+    });
+
+    it('replaces a note written under the old name instead of stacking a second one', async () => {
+        const me = await ourInstance();
+        // Same install, upgraded: its earlier note used the old product name.
+        playlist.summary = `My favourite comedies\n\n${line('test-host', me.id, Date.now() - HOUR)}`;
+        await writeMarker(plexServer, playlist.ratingKey, true);
+        expect(playlist.summary.match(/Auto-updated by/g)).toHaveLength(1);
+        expect(playlist.summary).toContain('Auto-updated by Bingemix');
+        expect(playlist.summary.startsWith('My favourite comedies\n\n')).toBe(true);
+    });
+
+    it('cleans up notes left behind by a mixed old/new run', async () => {
+        const me = await ourInstance();
+        const newer = `Auto-updated by Bingemix (a) · last checked ${new Date().toISOString()} · id:${me.id}`;
+        playlist.summary = `My favourite comedies\n\n${newer}\n\n${line('b', me.id, Date.now() - HOUR)}`;
+        await writeMarker(plexServer, playlist.ratingKey, false);
+        expect(playlist.summary).toBe('My favourite comedies');
     });
 
     it('turning off removes only the note', async () => {

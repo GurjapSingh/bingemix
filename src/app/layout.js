@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-    title: 'Plex Show Mixer',
-    description: 'Manage and mix your Plex show playlists',
+    title: 'Bingemix for Plex',
+    description:
+        'Interleave or shuffle your favourite shows into one auto-updating Plex playlist.',
 };
 
 // Runs before first paint so the saved/system theme applies without a flash.

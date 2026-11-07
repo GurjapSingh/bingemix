@@ -1,11 +1,11 @@
 
 services:
-  plex-show-mixer:
+  bingemix:
     build:
       context: .
       dockerfile: Dockerfile
-    image: gurjaps/plex-show-mixer:latest
-    container_name: plex-show-mixer
+    image: gurjaps/bingemix:latest
+    container_name: bingemix
     ports:
       - "${PORT:-6767}:${PORT:-6767}"
     environment:
