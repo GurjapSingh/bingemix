@@ -1,20 +1,22 @@
 <div align="center">
 
-<img src="src/app/icon.svg" alt="" width="84" height="84">
+<img src="src/app/icon.svg" alt="Bingemix" width="84" height="84">
 
-# Plex Show Mixer
+# Bingemix <sub>for Plex</sub>
 
-**Build Plex playlists that mix episodes from several TV shows, and keep them
-fresh.** Watched episodes are removed automatically, so a playlist always shows
-what is left to watch.
+**Multiple shows. One playlist.**
 
-[![Docker Image Version](https://img.shields.io/docker/v/gurjaps/plex-show-mixer?sort=semver&logo=docker&label=docker&color=e5a00d)](https://hub.docker.com/r/gurjaps/plex-show-mixer)
-[![Docker Pulls](https://img.shields.io/docker/pulls/gurjaps/plex-show-mixer?logo=docker&color=e5a00d)](https://hub.docker.com/r/gurjaps/plex-show-mixer)
+Interleave or shuffle your favourite shows into one auto-updating playlist.
+Take turns between shows, one episode each, or shuffle them. Watched episodes
+drop out on their own.
+
+[![Docker Image Version](https://img.shields.io/docker/v/gurjaps/bingemix?sort=semver&logo=docker&label=docker&color=7c3aed)](https://hub.docker.com/r/gurjaps/bingemix)
+[![Docker Pulls](https://img.shields.io/docker/pulls/gurjaps/bingemix?logo=docker&color=7c3aed)](https://hub.docker.com/r/gurjaps/bingemix)
 
 <a href="docs/screenshots/dashboard.png">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dashboard-dark.png">
-    <img src="docs/screenshots/dashboard.png" alt="Plex Show Mixer: pick shows, preview the mixed playlist, create it" width="760">
+    <img src="docs/screenshots/dashboard.png" alt="Bingemix: pick shows, preview the mixed playlist, create it" width="760">
   </picture>
 </a>
 
@@ -69,12 +71,12 @@ Light and dark themes are built in.
 ## Run with Docker
 
 ```bash
-docker run -d --name plex-show-mixer \
+docker run -d --name bingemix \
   -p 6767:6767 \
   -v ./data:/app/data \
   -v ./secrets:/app/secrets \
   --restart unless-stopped \
-  gurjaps/plex-show-mixer:latest
+  gurjaps/bingemix:latest
 ```
 
 Then open <http://localhost:6767>. The `data/` and `secrets/` folders are
@@ -91,9 +93,9 @@ Save this as `docker-compose.yml` anywhere; it just pulls the published image:
 
 ```yaml
 services:
-  plex-show-mixer:
-    image: gurjaps/plex-show-mixer:latest
-    container_name: plex-show-mixer
+  bingemix:
+    image: gurjaps/bingemix:latest
+    container_name: bingemix
     ports:
       - "6767:6767"
     volumes:
@@ -153,8 +155,19 @@ stored tokens cannot be read and people just sign in again.
   on a single server and can only contain that server's items.
 - If you run more than one copy of the app against the same Plex server, the
   app leaves a short note in the playlist description in Plex
-  (`Auto-updated by Plex Show Mixer (...)`) so other copies can warn you that a
-  playlist is already being updated elsewhere.
+  (`Auto-updated by Bingemix (...)`) so other copies can warn you that a
+  playlist is already being updated elsewhere. Copies from before the rename
+  wrote `Auto-updated by Plex Show Mixer (...)`; Bingemix still understands
+  those, but older releases do not understand the new wording, so upgrade every
+  copy that points at the same server together.
+
+## Renamed from Plex Show Mixer
+
+Bingemix was called Plex Show Mixer until version 1.2.3. The Docker image is now
+`gurjaps/bingemix`. To move over, stop the old container and start the new one
+with the **same** `data/` folder (and `secrets/` if you have one; older installs
+keep their key inside `data/`). Your playlists, auto-update settings and
+encryption key carry over, and nobody has to sign in again.
 
 ## Development
 
@@ -183,3 +196,8 @@ unreachable connections. Each test file uses its own temporary data folder.
 
 Built with [Next.js](https://nextjs.org), React, Tailwind CSS and SQLite
 (`better-sqlite3`).
+
+---
+
+Bingemix is an independent project. It is not affiliated with, endorsed by, or
+sponsored by Plex Inc. Plex is a trademark of Plex, Inc.

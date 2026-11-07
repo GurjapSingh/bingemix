@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Plex Show Mixer: mixed-show Plex playlists that stay fresh</title>
-<meta name="description" content="Build Plex playlists that mix episodes from several TV shows, and keep them fresh: watched episodes are removed automatically. Self-hosted, runs in Docker.">
+<title>Bingemix for Plex: multiple shows, one playlist</title>
+<meta name="description" content="Interleave or shuffle your favourite shows into one auto-updating Plex playlist. Watched episodes drop out on their own. Self-hosted, runs in Docker.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<meta property="og:title" content="Plex Show Mixer">
-<meta property="og:description" content="Mix episodes from several TV shows into one Plex playlist. Watched episodes drop out automatically.">
+<meta property="og:title" content="Bingemix for Plex">
+<meta property="og:description" content="Multiple shows. One playlist. Interleave or shuffle your favourite shows into one auto-updating Plex playlist.">
 <meta property="og:image" content="screenshots/dashboard.png">
 <style>
 :root {
@@ -16,8 +16,9 @@
     --text: #17171a;
     --muted: #62626b;
     --border: #e2e2e7;
-    --accent: #e5a00d;
-    --accent-fg: #1c1400;
+    --accent: #7c3aed;
+    --accent-fg: #ffffff;
+    --accent-ink: #6d28d9;
     --code-bg: #14141a;
     --code-fg: #ececf1;
     --code-muted: #8b8b98;
@@ -25,6 +26,7 @@
 }
 @media (prefers-color-scheme: dark) {
     :root {
+        --accent-ink: #a78bfa;
         --bg: #0b0b0d;
         --card: #141417;
         --text: #f2f2f5;
@@ -51,6 +53,7 @@ a { color: inherit; }
 nav { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; text-decoration: none; }
 .brand img { width: 34px; height: 34px; }
+.brand .for { font-weight: 500; font-size: .8em; color: var(--muted); margin-left: -4px; }
 .nav-links { display: flex; gap: 22px; font-size: 15px; }
 .nav-links a { text-decoration: none; color: var(--muted); }
 .nav-links a:hover { color: var(--text); }
@@ -58,7 +61,7 @@ nav { display: flex; align-items: center; justify-content: space-between; paddin
 /* hero */
 .hero { text-align: center; padding: 56px 0 40px; }
 h1 { font-size: clamp(2.2rem, 6vw, 3.6rem); line-height: 1.1; letter-spacing: -.03em; margin: 0 0 18px; }
-h1 em { font-style: normal; color: var(--accent); }
+h1 em { font-style: normal; color: var(--accent-ink); }
 .lead { max-width: 640px; margin: 0 auto 30px; font-size: 1.2rem; color: var(--muted); }
 .btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .btn {
@@ -118,9 +121,8 @@ figcaption b { color: var(--text); }
 
 .tag {
     display: inline-block; font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-    background: rgba(229,160,13,.15); color: #b27a00; padding: 2px 10px; border-radius: 999px; margin-left: 8px; vertical-align: middle;
+    background: rgba(124,58,237,.14); color: var(--accent-ink); padding: 2px 10px; border-radius: 999px; margin-left: 8px; vertical-align: middle;
 }
-@media (prefers-color-scheme: dark) { .tag { color: var(--accent); } }
 
 .code { position: relative; margin: 10px 0 0; }
 .code .label {
@@ -174,28 +176,29 @@ footer a { color: var(--text); }
 
 <div class="wrap">
     <nav>
-        <a class="brand" href="#top"><img src="icon.svg" alt="">Plex Show Mixer</a>
+        <a class="brand" href="#top"><img src="icon.svg" alt="">Bingemix <span class="for">for Plex</span></a>
         <div class="nav-links">
             <a href="#features">Features</a>
             <a href="#get-started">Get started</a>
-            <a href="https://github.com/GurjapSingh/plex-show-mixer">GitHub</a>
+            <a href="https://github.com/GurjapSingh/bingemix">GitHub</a>
         </div>
     </nav>
 
     <header class="hero" id="top">
-        <h1>Mix your shows.<br><em>Keep the playlist fresh.</em></h1>
+        <h1>Multiple shows.<br><em>One playlist.</em></h1>
         <p class="lead">
-            Build Plex playlists that mix episodes from several TV shows. Watched episodes
-            are removed automatically, so a playlist always shows what is left to watch.
+            Interleave or shuffle your favourite shows into one auto-updating playlist.
+            Take turns between shows, one episode each, or shuffle them. Watched
+            episodes drop out on their own.
         </p>
         <div class="btns">
             <a class="btn primary" href="#get-started">Get started</a>
-            <a class="btn" href="https://github.com/GurjapSingh/plex-show-mixer">View on GitHub</a>
+            <a class="btn" href="https://github.com/GurjapSingh/bingemix">View on GitHub</a>
         </div>
         <div class="shot">
             <picture>
                 <source media="(prefers-color-scheme: dark)" srcset="screenshots/dashboard-dark.png">
-                <img src="screenshots/dashboard.png" alt="Plex Show Mixer showing selected shows and a mixed playlist preview">
+                <img src="screenshots/dashboard.png" alt="Bingemix showing selected shows and a mixed playlist preview">
             </picture>
         </div>
     </header>
@@ -239,12 +242,12 @@ footer a { color: var(--text); }
             <p class="sub" style="margin-bottom:0">No files to write. Run it in the folder where you want the app's files kept; the <code class="i">data</code> and <code class="i">secrets</code> folders are created there for you.</p>
             <div class="code">
                 <div class="label"><span>terminal</span><button class="copy" type="button">Copy</button></div>
-<pre>docker run -d --name plex-show-mixer \
+<pre>docker run -d --name bingemix \
   -p 6767:6767 \
   -v ./data:/app/data \
   -v ./secrets:/app/secrets \
   --restart unless-stopped \
-  gurjaps/plex-show-mixer:latest</pre>
+  gurjaps/bingemix:latest</pre>
             </div>
         </div>
 
@@ -254,9 +257,9 @@ footer a { color: var(--text); }
             <div class="code">
                 <div class="label"><span>docker-compose.yml</span><button class="copy" type="button">Copy</button></div>
 <pre>services:
-  plex-show-mixer:
-    image: gurjaps/plex-show-mixer:latest
-    container_name: plex-show-mixer
+  bingemix:
+    image: gurjaps/bingemix:latest
+    container_name: bingemix
     ports:
       - "6767:6767"
     volumes:
@@ -314,13 +317,13 @@ footer a { color: var(--text); }
 <pre>mkdir -p keys
 openssl rand -base64 32 &gt; keys/token_key
 
-docker run -d --name plex-show-mixer \
+docker run -d --name bingemix \
   -p 6767:6767 \
   -v ./data:/app/data \
   -v ./keys/token_key:/run/secrets/token_key:ro \
   -e TOKEN_ENCRYPTION_KEY_FILE=/run/secrets/token_key \
   --restart unless-stopped \
-  gurjaps/plex-show-mixer:latest</pre>
+  gurjaps/bingemix:latest</pre>
         </div>
         <p class="sub" style="margin-top:14px">Create the key file <i>before</i> starting: if it is missing, Docker makes an empty folder in its place and the app won't start. You can also pass the key itself as <code class="i">TOKEN_ENCRYPTION_KEY</code>.</p>
     </div>
@@ -349,11 +352,11 @@ docker run -d --name plex-show-mixer \
 
 <footer>
     <div class="wrap">
-        <p>Plex Show Mixer is an independent project and is not affiliated with Plex Inc.</p>
+        <p>Bingemix is an independent project. It is not affiliated with, endorsed by, or sponsored by Plex Inc. Plex is a trademark of Plex, Inc.</p>
         <p>
-            <a href="https://github.com/GurjapSingh/plex-show-mixer">GitHub</a> ·
-            <a href="https://hub.docker.com/r/gurjaps/plex-show-mixer">Docker Hub</a> ·
-            <a href="https://github.com/GurjapSingh/plex-show-mixer/issues">Report an issue</a>
+            <a href="https://github.com/GurjapSingh/bingemix">GitHub</a> ·
+            <a href="https://hub.docker.com/r/gurjaps/bingemix">Docker Hub</a> ·
+            <a href="https://github.com/GurjapSingh/bingemix/issues">Report an issue</a>
         </p>
     </div>
 </footer>
