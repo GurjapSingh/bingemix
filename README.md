@@ -197,6 +197,11 @@ unreachable connections. Each test file uses its own temporary data folder.
 Built with [Next.js](https://nextjs.org), React, Tailwind CSS and SQLite
 (`better-sqlite3`).
 
+## License
+
+[MIT](LICENSE). Contributions are welcome as pull requests, and are accepted under
+the same license.
+
 ---
 
 Bingemix is an independent project. It is not affiliated with, endorsed by, or
