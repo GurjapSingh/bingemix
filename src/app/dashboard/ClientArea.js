@@ -19,6 +19,7 @@ export default function ClientArea() {
     const [episodesError, setEpisodesError] = useState('');
     const [playlistRefreshKey, setPlaylistRefreshKey] = useState(0);
     const [editingPlaylist, setEditingPlaylist] = useState(null);
+    const [editNotice, setEditNotice] = useState('');
     // True while a playlist is being created/updated: reordering is locked.
     const [saving, setSaving] = useState(false);
     const fetchedShowsRef = useRef(new Set());
@@ -133,8 +134,17 @@ export default function ClientArea() {
         setTimeout(() => step3Ref.current?.scrollIntoView({ behavior: 'smooth' }), 0);
     }, []);
 
+    // A save point restore changes the playlist on the server, so the edit
+    // view (a snapshot taken when editing began) must be reloaded.
+    async function handlePlaylistRestored(playlistKey) {
+        if (editingPlaylist?.playlistKey !== playlistKey) return;
+        await loadPlaylistForEdit(playlistKey, editingPlaylist.title);
+        setEditNotice('Playlist was reset to its save point. The edit view has been reloaded.');
+    }
+
     function cancelEdit() {
         setEditingPlaylist(null);
+        setEditNotice('');
         setSelected([]);
         setSelectedEpisodes({});
         fetchedShowsRef.current = new Set();
@@ -259,6 +269,9 @@ export default function ClientArea() {
                             </>
                         )}
                     </h2>
+                    {editingPlaylist && editNotice && (
+                        <div className="alert mb-3">{editNotice}</div>
+                    )}
                     <SearchPanel
                         locked={saving}
                         selected={selected}
@@ -295,7 +308,12 @@ export default function ClientArea() {
                     </h2>
                     <PlaylistsPanel
                         refreshKey={playlistRefreshKey}
-                        onEditPlaylist={loadPlaylistForEdit}
+                        onEditPlaylist={(key, title) => {
+                            setEditNotice('');
+                            return loadPlaylistForEdit(key, title);
+                        }}
+                        editingPlaylistKey={editingPlaylist?.playlistKey ?? null}
+                        onRestored={handlePlaylistRestored}
                     />
                 </div>
             )}

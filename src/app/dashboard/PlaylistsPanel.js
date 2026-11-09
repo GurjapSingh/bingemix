@@ -11,7 +11,7 @@ function timeAgo(iso) {
     return `${Math.round(hrs / 24)} days ago`;
 }
 
-export default function PlaylistsPanel({ refreshKey, onEditPlaylist }) {
+export default function PlaylistsPanel({ refreshKey, onEditPlaylist, editingPlaylistKey, onRestored }) {
     const [playlists, setPlaylists] = useState([]);
     const [authInvalid, setAuthInvalid] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -99,11 +99,17 @@ export default function PlaylistsPanel({ refreshKey, onEditPlaylist }) {
     }
 
     async function restoreSavepoint(playlistKey) {
-        if (!window.confirm('Reset playlist to save point? This will replace the current contents.')) return;
+        const beingEdited = editingPlaylistKey === playlistKey;
+        const msg = beingEdited
+            ? 'Reset playlist to save point? This will replace the current contents and discard any unsaved changes in the edit view.'
+            : 'Reset playlist to save point? This will replace the current contents.';
+        if (!window.confirm(msg)) return;
         setRestoringKey(playlistKey);
         try {
             const res = await fetch(`/api/playlists/${playlistKey}/savepoint/restore`, { method: 'POST' });
             if (!res.ok) throw new Error('Failed to restore save point.');
+            await fetchPlaylists();
+            await onRestored?.(playlistKey);
         } finally {
             setRestoringKey(null);
         }
