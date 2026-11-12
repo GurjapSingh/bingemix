@@ -9,6 +9,7 @@ import {
     useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useVirtualizer, defaultRangeExtractor } from '@tanstack/react-virtual';
 import { formatRuntime } from './episodeFormat';
 import { useSortSensors, lockY } from './dnd';
 import { runWithProgress } from './progress';
@@ -21,7 +22,7 @@ const STAGE_LABELS = {
 };
 
 // One playlist row that can be dragged up/down by its handle.
-function SortableRow({ id, disabled, children }) {
+function SortableRow({ id, index, measureRef, disabled, children }) {
     const {
         attributes,
         listeners,
@@ -33,7 +34,11 @@ function SortableRow({ id, disabled, children }) {
     } = useSortable({ id, disabled });
     return (
         <tr
-            ref={setNodeRef}
+            ref={(node) => {
+                setNodeRef(node);
+                measureRef?.(node);
+            }}
+            data-index={index}
             style={{
                 transform: CSS.Translate.toString(transform),
                 transition,
@@ -193,7 +198,32 @@ export default function PreviewPanel({
         setManualOrder(editingPlaylist?.order ?? null);
     }, [editingPlaylist]);
 
+    // Only the rows near the viewport are mounted: with ~1500 sortable rows,
+    // starting a drag (which measures and re-renders every row) took seconds.
+    const scrollRef = useRef(null);
+    const [activeId, setActiveId] = useState(null);
+    const activeIndexRef = useRef(-1);
+    activeIndexRef.current =
+        activeId === null ? -1 : preview.findIndex((e) => String(e.ratingKey) === activeId);
+    const rowVirtualizer = useVirtualizer({
+        count: preview.length,
+        getScrollElement: () => scrollRef.current,
+        estimateSize: () => 45,
+        overscan: 12,
+        // Keep the dragged row mounted even if autoscroll moves it off-screen.
+        rangeExtractor: (range) => {
+            const indexes = defaultRangeExtractor(range);
+            const a = activeIndexRef.current;
+            if (a >= 0 && !indexes.includes(a)) {
+                indexes.push(a);
+                indexes.sort((x, y) => x - y);
+            }
+            return indexes;
+        },
+    });
+
     function handleRowDragEnd({ active, over }) {
+        setActiveId(null);
         if (!over || active.id === over.id) return;
         const keys = preview.map((e) => String(e.ratingKey));
         const from = keys.indexOf(String(active.id));
@@ -267,6 +297,18 @@ export default function PreviewPanel({
     // thing to do is search for a show.
     if (selected.length === 0 && !editingPlaylist) return null;
 
+    // A custom order (dragged rows, or the order of the playlist being
+    // edited) is its own mode; Take turns / Shuffle replace it.
+    const customActive = manualOrder !== null;
+    // Offer to go back to the playlist's saved order while editing.
+    const canUseCustom = customActive || Boolean(editingPlaylist?.order);
+
+    const virtualRows = rowVirtualizer.getVirtualItems();
+    const padTop = virtualRows.length ? virtualRows[0].start : 0;
+    const padBottom = virtualRows.length
+        ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+        : 0;
+
     return (
         <section className="mt-8 space-y-3 border-t border-[var(--border)] pt-6">
             <div>
@@ -282,23 +324,39 @@ export default function PreviewPanel({
             <div className="flex flex-wrap items-center gap-3">
                 <div className="seg" role="radiogroup" aria-label="Playlist order">
                     {[
+                        ['custom', editingPlaylist ? 'Current order' : 'Custom order'],
                         ['round-robin', 'Take turns'],
                         ['random', 'Shuffle'],
-                    ].map(([value, label]) => (
-                        <button
-                            key={value}
-                            type="button"
-                            disabled={busy}
-                            role="radio"
-                            aria-checked={playlistOrder === value}
-                            data-active={playlistOrder === value}
-                            onClick={() => onChangePlaylistOrder(value)}
-                        >
-                            {label}
-                        </button>
-                    ))}
+                    ]
+                        .filter(([value]) => value !== 'custom' || canUseCustom)
+                        .map(([value, label]) => {
+                            const active =
+                                value === 'custom' ? customActive : !customActive && playlistOrder === value;
+                            return (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    disabled={busy}
+                                    role="radio"
+                                    aria-checked={active}
+                                    data-active={active}
+                                    onClick={() => {
+                                        if (value === 'custom') {
+                                            // Only meaningful while editing: go back to the saved order.
+                                            if (editingPlaylist?.order) setManualOrder(editingPlaylist.order);
+                                        } else {
+                                            // Re-mix everything, even if this mode was already selected.
+                                            setManualOrder(null);
+                                            onChangePlaylistOrder(value);
+                                        }
+                                    }}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
                 </div>
-                {playlistOrder === 'random' && (
+                {!customActive && playlistOrder === 'random' && (
                     <button
                         type="button"
                         disabled={busy}
@@ -312,7 +370,11 @@ export default function PreviewPanel({
                     </button>
                 )}
                 <span className="text-sm muted">
-                    {playlistOrder === 'random'
+                    {customActive
+                        ? editingPlaylist
+                            ? 'Keeping the current order; new episodes go at the end.'
+                            : 'Your drag order. Pick Take turns or Shuffle to start over.'
+                        : playlistOrder === 'random'
                         ? 'Episodes from all your shows in a random order.'
                         : 'Alternates between your shows: one episode from each, then repeat.'}
                 </span>
@@ -335,36 +397,24 @@ export default function PreviewPanel({
                         {selected.length} {selected.length === 1 ? 'show' : 'shows'} ·{' '}
                         {preview.length} episodes
                         {totalMs > 0 && <> · {formatRuntime(totalMs)} total</>}
-                        {manualOrder && (
-                            <>
-                                {' '}
-                                <span className="chip chip-accent">Custom order</span>{' '}
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => setManualOrder(null)}
-                                >
-                                    Reset order
-                                </button>
-                            </>
-                        )}
                         <span className="block text-xs">
                             {busy ? 'Saving… the order is locked until it finishes.' : 'Drag the ⠿ handle on a row to change the order.'}
                         </span>
                     </div>
-                    <div className="tbl-wrap max-h-[480px]">
+                    <div className="tbl-wrap max-h-[480px]" ref={scrollRef}>
                         {/* DndContext renders helper <div>s, so it must sit outside <table>. */}
                         <DndContext
                             sensors={rowSensors}
                             collisionDetection={closestCenter}
                             modifiers={[lockY]}
+                            onDragStart={({ active }) => setActiveId(String(active.id))}
                             onDragEnd={handleRowDragEnd}
+                            onDragCancel={() => setActiveId(null)}
                         >
-                        <table className="tbl tbl-fixed" style={{ minWidth: '46rem' }}>
+                        <table className="tbl tbl-fixed" style={{ minWidth: '47.5rem' }}>
                             <colgroup>
                                 <col style={{ width: '3rem' }} />
-                                <col style={{ width: '2.75rem' }} />
+                                <col style={{ width: '4.25rem' }} />
                                 <col style={{ width: '10rem' }} />
                                 <col style={{ width: '5.5rem' }} />
                                 <col />
@@ -389,9 +439,23 @@ export default function PreviewPanel({
                                 strategy={verticalListSortingStrategy}
                             >
                             <tbody>
-                                {preview.map((e, i) => (
-                                    <SortableRow key={e.ratingKey} id={String(e.ratingKey)} disabled={busy}>
-                                        <td className="px-3 py-2 muted">
+                                {virtualRows.length > 0 && padTop > 0 && (
+                                    <tr aria-hidden="true" style={{ height: padTop, borderTop: 'none' }}>
+                                        <td colSpan={8} style={{ padding: 0 }} />
+                                    </tr>
+                                )}
+                                {virtualRows.map((vr) => {
+                                    const i = vr.index;
+                                    const e = preview[i];
+                                    return (
+                                    <SortableRow
+                                        key={e.ratingKey}
+                                        id={String(e.ratingKey)}
+                                        index={i}
+                                        measureRef={rowVirtualizer.measureElement}
+                                        disabled={busy}
+                                    >
+                                        <td className="px-3 py-2 muted whitespace-nowrap tabular-nums">
                                             {i + 1}
                                         </td>
                                         <td className="px-3 py-2 font-medium">
@@ -420,7 +484,13 @@ export default function PreviewPanel({
                                             </button>
                                         </td>
                                     </SortableRow>
-                                ))}
+                                    );
+                                })}
+                                {virtualRows.length > 0 && padBottom > 0 && (
+                                    <tr aria-hidden="true" style={{ height: padBottom, borderTop: 'none' }}>
+                                        <td colSpan={8} style={{ padding: 0 }} />
+                                    </tr>
+                                )}
                             </tbody>
                             </SortableContext>
                         </table>
