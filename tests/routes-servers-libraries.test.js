@@ -164,11 +164,20 @@ describe('a server with several TV libraries', () => {
         expect(r.data.results.map((x) => x.title)).toEqual(['The Office (US)']);
     });
 
-    it('search needs both a server and a library', async () => {
+    it('search needs a server', async () => {
         await loginAs('tok-alice');
-        await selectServer('home');
         const { res } = await call('@/app/api/search/route', 'GET', '/api/search?query=office');
         expect(res.status).toBe(401);
+    });
+
+    it('search covers every TV library when none is selected', async () => {
+        await loginAs('tok-alice');
+        await selectServer('home');
+        let r = await call('@/app/api/search/route', 'GET', '/api/search?query=office');
+        expect(r.res.status).toBe(200);
+        expect(r.data.results.map((x) => x.title)).toEqual(['The Office (US)']);
+        r = await call('@/app/api/search/route', 'GET', '/api/search?query=bebop');
+        expect(r.data.results.map((x) => x.title)).toEqual(['Cowboy Bebop']);
     });
 
     it('can deselect the library', async () => {
